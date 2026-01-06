@@ -349,6 +349,45 @@
             background: #6cf !important;
         }
 
+        /* Single Note Mode Styles */
+        .key.accumulated {
+            background-color: #4caf50 !important;
+            /* Green highlight for accumulated notes */
+        }
+
+        .key.black.accumulated {
+            background-color: #388e3c !important;
+            /* Darker green for black keys */
+            border-bottom: 1px solid #2e7d32;
+        }
+
+        #singleNoteBtn.active {
+            background-color: #ff9800 !important;
+            color: #111;
+        }
+
+        /* DB Meter Styles */
+        #dbMeterContainer {
+            width: 100%;
+            height: 12px;
+            background-color: #222;
+            border-radius: 6px;
+            margin-top: 8px;
+            overflow: hidden;
+            border: 1px solid #444;
+            display: none;
+            /* Hidden by default */
+            position: relative;
+        }
+
+        #dbMeterBar {
+            height: 100%;
+            width: 0%;
+            background-color: #f44336;
+            /* Start Red */
+            transition: width 0.05s linear, background-color 0.1s ease;
+        }
+
         .premium-feature.locked {
             opacity: 0.6;
         }
@@ -880,67 +919,6 @@
                 width: auto;
             }
         }
-
-        /* Mic Status Indicators */
-        #micStatus.small {
-            font-size: 0.8em;
-            margin-top: 5px;
-        }
-
-        .mic-loading {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border: 2px solid rgba(255, 255, 255, .3);
-            border-radius: 50%;
-            border-top-color: #fff;
-            animation: spin 1s ease-in-out infinite;
-            margin-left: 5px;
-        }
-
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        /* DB Meter Styles */
-        #dbMeterContainer {
-            width: 100%;
-            height: 10px;
-            background-color: #333;
-            border-radius: 5px;
-            margin-top: 5px;
-            overflow: hidden;
-            border: 1px solid #555;
-            display: none;
-            /* Hidden by default, shown when mic active */
-        }
-
-        #dbMeterBar {
-            height: 100%;
-            width: 0%;
-            background-color: #f44336;
-            /* Start Read */
-            transition: width 0.1s ease, background-color 0.2s ease;
-        }
-
-        /* Single Note Mode Styles */
-        #singleNoteBtn.active {
-            background-color: #ff9800;
-            color: #111;
-        }
-
-        .key.accumulated {
-            background-color: #4caf50 !important;
-            /* Green highlight for accumulated notes */
-        }
-
-        .key.black.accumulated {
-            background-color: #388e3c !important;
-            /* Darker green for black keys */
-            border-bottom: 1px solid #2e7d32;
-        }
     </style>
 </head>
 
@@ -1119,7 +1097,7 @@
         <div id="enabledChordsReminder">Enabled chord types: </div>
         <div id="midiStatus">MIDI not connected</div>
 
-        <!-- Mic Controls & Meter -->
+        <!-- Mic Controls -->
         <div style="display: flex; gap: 10px; align-items: center; margin-top: 5px;">
             <button id="micToggleBtn" style="padding: 5px 10px; font-size: 0.9em; cursor: pointer; flex: 1;"
                 data-i18n="micEnable">Enable Mic 🎤</button>
@@ -1127,9 +1105,11 @@
                 style="padding: 5px 10px; font-size: 0.9em; cursor: pointer; flex: 1; display: none;"
                 data-i18n="singleNoteMode">Note Singole 🎵</button>
         </div>
+
         <div id="dbMeterContainer">
             <div id="dbMeterBar"></div>
         </div>
+
         <div id="micStatus" style="font-size: 0.8em; margin-top: 2px;"></div>
     </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
@@ -1145,11 +1125,13 @@
         let historyIndex = -1;
         let isChordDisplayed = false;
 
-        // Single Note Mode State
-        let singleNoteMode = false;
-        let accumulatedNotes = new Set();
-
-
+        // Microphone variables
+        let micContext, analyser, micStream, micRunning = false;
+        let previousChroma = new Float32Array(12).fill(0);
+        let smoothingAlpha = 0.65;
+        let micSource;
+        let pitchDetectionFrame;
+        const noteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
         const translations = {
             en: {
@@ -1213,14 +1195,7 @@
                 micDisable: "Disable Mic 🎤",
                 micActive: "Microphone Active",
                 micError: "Microphone Error",
-                micMidiConflict: "Mic disabled (MIDI connected)",
-                micQualityExcellent: "Microphone Quality: Excellent",
-                micQualityGood: "Microphone Quality: Good",
-                micQualitySufficient: "Microphone Quality: Sufficient",
-                micQualityPoor: "Microphone Quality: Poor",
-                micAdviceTooWeak: "Signal too weak. Move closer to the piano.",
-                micAdviceGetCloser: "Try moving closer for better accuracy.",
-                singleNoteMode: "Single Note Mode"
+                micMidiConflict: "Mic disabled (MIDI connected)"
             },
             it: {
                 appTitle: "Trainer Accordi Jazz Interattivo",
@@ -1283,14 +1258,7 @@
                 micDisable: "Disabilita Microfono 🎤",
                 micActive: "Microfono Attivo",
                 micError: "Errore Microfono",
-                micMidiConflict: "Microfono disabilitato (MIDI connesso)",
-                micQualityExcellent: "Qualità Microfono: Eccellente",
-                micQualityGood: "Qualità Microfono: Buona",
-                micQualitySufficient: "Qualità Microfono: Sufficiente",
-                micQualityPoor: "Qualità Microfono: Scarsa",
-                micAdviceTooWeak: "Segnale troppo debole. Avvicinati al pianoforte.",
-                micAdviceGetCloser: "Prova ad avvicinarti per una maggiore precisione.",
-                singleNoteMode: "Modalità Note Singole"
+                micMidiConflict: "Microfono disabilitato (MIDI connesso)"
             }
         };
 
@@ -1561,7 +1529,221 @@
         const midiToNoteName = midi => { const octave = Math.floor(midi / 12) - 1; const noteIndex = midi % 12; return noteNamesSharp[noteIndex] + octave; };
         function updateEnabledChordsReminder() { const enabledChords = Array.from(document.querySelectorAll('.chordType:checked')).map(cb => cb.value).join(', '); document.getElementById('enabledChordsReminder').textContent = `${t('enabledTypes')}: ${enabledChords}`; }
 
-        // Single Note Mode Logic
+        // --- SINGLE NOTE MODE STATE ---
+        let singleNoteMode = false;
+        let accumulatedNotes = new Set();
+
+        // --- CONSTANTS ---
+        const RMS_RED_THRESHOLD = 0.02;    // Below this = Silence/Ignore
+        const RMS_GREEN_THRESHOLD = 0.05;  // Above this = Active Detection
+        // Yellow is between RED and GREEN
+
+        // Microphone Functions
+        // Microphone Functions with Meyda and Chroma Template Matching
+        async function startMicrophone() {
+            if (midiAccess && midiAccess.inputs.size > 0) {
+                alert(t('micMidiConflict'));
+                return;
+            }
+            if (micRunning) return;
+
+            try {
+                if (!micContext) {
+                    micContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (micContext.state === 'suspended') {
+                    await micContext.resume();
+                }
+
+                micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                micSource = micContext.createMediaStreamSource(micStream);
+
+                // Pre-processing: LowShelf Filter
+                const lowShelf = micContext.createBiquadFilter();
+                lowShelf.type = "lowshelf";
+                lowShelf.frequency.value = 250;
+                lowShelf.gain.value = 12;
+                micSource.connect(lowShelf);
+
+                // Initialize Meyda
+                if (typeof Meyda === 'undefined') {
+                    const script = document.createElement('script');
+                    script.src = "https://unpkg.com/meyda/dist/web/meyda.min.js";
+                    script.onload = () => { startMicrophone(); }; // Retry after load
+                    document.head.appendChild(script);
+                    return;
+                }
+
+                analyser = Meyda.createMeydaAnalyzer({
+                    "audioContext": micContext,
+                    "source": lowShelf,
+                    "bufferSize": 8192, // Max resolution (~5Hz bin width)
+                    "featureExtractors": ["chroma", "rms", "spectralCentroid"],
+                    "callback": (features) => {
+                        analyzeAudio(features);
+                    }
+                });
+
+                // Reset smoothing
+                previousChroma.fill(0);
+                analyser.start();
+                micRunning = true;
+
+                document.getElementById('micToggleBtn').textContent = t('micDisable');
+                document.getElementById('micStatus').textContent = t('micActive');
+                document.getElementById('micStatus').style.color = '#4caf50';
+
+                // Show Single Note controls
+                document.getElementById('singleNoteBtn').style.display = 'block';
+                document.getElementById('dbMeterContainer').style.display = 'block';
+
+            } catch (err) {
+                console.error("Mic Error:", err);
+                document.getElementById('micStatus').textContent = t('micError');
+                document.getElementById('micStatus').style.color = '#f44336';
+            }
+        }
+
+        function stopMicrophone() {
+            if (!micRunning) return;
+            micRunning = false;
+
+            if (analyser) analyser.stop();
+            if (micStream) micStream.getTracks().forEach(track => track.stop());
+
+            document.getElementById('micToggleBtn').textContent = t('micEnable');
+            document.getElementById('micStatus').textContent = "";
+
+            // Hide Single Note controls
+            document.getElementById('singleNoteBtn').style.display = 'none';
+            document.getElementById('dbMeterContainer').style.display = 'none';
+            if (singleNoteMode) toggleSingleNoteMode(); // Reset mode
+        }
+
+        function toggleMicrophone() {
+            if (micRunning) stopMicrophone();
+            else startMicrophone();
+        }
+
+        function analyzeAudio(features) {
+            if (!features || !features.chroma || !currentChord || correctChordLocked) return;
+
+            const rms = features.rms || 0;
+            updateDBMeter(rms);
+
+            // 1. INTENSITY GATING
+            // RED (< 0.02): Ignore everything
+            if (rms < RMS_RED_THRESHOLD) return;
+
+            // YELLOW (< 0.05): Wait (do not process)
+            if (rms < RMS_GREEN_THRESHOLD) return;
+
+            // GREEN (>= 0.05): Proceed with detection
+
+            const inputChroma = features.chroma;
+
+            // 2. SINGLE NOTE MODE LOGIC
+            if (singleNoteMode) {
+                // Find strongest note in chroma
+                let maxVal = 0;
+                let detectedNote = -1;
+                for (let i = 0; i < 12; i++) {
+                    if (inputChroma[i] > maxVal) {
+                        maxVal = inputChroma[i];
+                        detectedNote = i;
+                    }
+                }
+
+                // Strict Threshold for single note definition
+                // If the strongest note is dominant enough
+                if (maxVal > 0.8 && detectedNote !== -1) {
+                    processSingleNote(detectedNote);
+                }
+                return; // Skip standard chord detection in this mode
+            }
+
+            // --- STANDARD CHORD MODE (Original Logic) ---
+            // 1. Temporal Smoothing (Exponential Moving Average)
+            for (let i = 0; i < 12; i++) {
+                previousChroma[i] = (previousChroma[i] * smoothingAlpha) + (inputChroma[i] * (1 - smoothingAlpha));
+            }
+
+            // Build Target Chroma Template
+            const targetChroma = new Array(12).fill(0);
+            const essentialNotes = currentChord.essential;
+
+            essentialNotes.forEach(noteIndex => {
+                targetChroma[noteIndex % 12] = 1;
+            });
+
+            // Calculate Cosine Similarity on Smoothed Chroma
+            const similarity = calculateCosineSimilarity(previousChroma, targetChroma);
+
+            // Dynamic Threshold based on Spectral Centroid
+            let threshold = 0.88;
+            if (features.spectralCentroid) {
+                if (features.spectralCentroid < 20) {
+                    threshold = 0.75;
+                } else if (features.spectralCentroid < 40) {
+                    threshold = 0.82;
+                }
+            }
+
+            // Strict Threshold for correctness
+            if (similarity > threshold) {
+                correctChordLocked = true;
+                triggerSuccess();
+            }
+        }
+
+        function processSingleNote(noteIndex) {
+            if (correctChordLocked) return;
+
+            // STRICT FILTERING: Only accept notes that belong to the chord
+            const allAllowedTarget = new Set(currentChord.all.map(n => n % 12));
+            const essentialNotesTarget = new Set(currentChord.essential.map(n => n % 12));
+            const isRootless = document.getElementById('rootless').checked;
+            if (isRootless) {
+                essentialNotesTarget.delete(currentChord.root % 12);
+            }
+
+            if (allAllowedTarget.has(noteIndex)) {
+                // It's a valid note! Add to accumulated if not already there
+                if (!accumulatedNotes.has(noteIndex)) {
+                    accumulatedNotes.add(noteIndex);
+                    updateVirtualKeyboardHighlights();
+                }
+            }
+            // Wrong notes are simply IGNORED (no visual feedback, as requested)
+
+            // Check if chord is complete
+            const playedPitches = accumulatedNotes;
+            const hasAllEssential = [...essentialNotesTarget].every(note => playedPitches.has(note));
+
+            if (hasAllEssential && playedPitches.size >= essentialNotesTarget.size) {
+                correctChordLocked = true;
+                triggerSuccess();
+                resetAccumulatedNotes();
+            }
+        }
+
+        function updateDBMeter(rms) {
+            const bar = document.getElementById('dbMeterBar');
+            if (!bar) return;
+
+            // Scale: 0.1 RMS is max visual
+            let percent = Math.min(100, (rms / 0.1) * 100);
+            bar.style.width = percent + '%';
+
+            if (rms < RMS_RED_THRESHOLD) {
+                bar.style.backgroundColor = '#f44336'; // Red
+            } else if (rms < RMS_GREEN_THRESHOLD) {
+                bar.style.backgroundColor = '#ffeb3b'; // Yellow
+            } else {
+                bar.style.backgroundColor = '#4caf50'; // Green
+            }
+        }
+
         function toggleSingleNoteMode() {
             singleNoteMode = !singleNoteMode;
             const btn = document.getElementById('singleNoteBtn');
@@ -1598,508 +1780,6 @@
                     }
                 }
             });
-        }
-
-
-        // Microphone Functions
-
-        // ========== FUNZIONI RILEVAMENTO DISPOSITIVO E OTTIMIZZAZIONE ==========
-        function isMobileDevice() {
-            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (window.innerWidth <= 768);
-        }
-
-        const IS_MOBILE = isMobileDevice();
-
-        function isIOS() {
-            return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-        }
-
-        function getOptimalBufferSize() {
-            if (!isMobileDevice()) return 4096;
-            const cpuCores = navigator.hardwareConcurrency || 2;
-            const memory = navigator.deviceMemory || 2;
-            if (cpuCores >= 6 && memory >= 4) return 4096;
-            else if (cpuCores >= 4) return 3072;
-            else return 2048;
-        }
-
-        function getOptimalSmoothingAlpha() {
-            return isMobileDevice() ? 0.70 : 0.65;
-        }
-
-        // Advanced Pitch Detection Constants
-        const NOTE_CONFIDENCE_THRESHOLD = IS_MOBILE ? 0.25 : 0.30;
-        const NOTE_SUSTAIN_TIME = IS_MOBILE ? 300 : 200;
-        const MIN_FREQUENCY = 65;
-        const MAX_FREQUENCY = 2093;
-        const FFT_SIZE = IS_MOBILE ? 2048 : 4096;
-        const MEYDA_BUFFER_SIZE = IS_MOBILE ? 1024 : 2048;
-        const PEAK_THRESHOLD = IS_MOBILE ? -85 : -75;
-        const RMS_THRESHOLD = IS_MOBILE ? 0.001 : 0.002;
-        const HARMONIC_TOLERANCE = IS_MOBILE ? 0.1 : 0.05;
-
-        // NOISE GATE OPTIMIZATION
-        const NOISE_GATE_THRESHOLD = 0.02; // Minimum RMS to process audio
-        const SIGNAL_OK_THRESHOLD = 0.05;  // RMS for Green meter
-
-        // Global State
-        let detectedNotes = new Map();
-        let consecutiveDetections = 0;
-        let lastCheckTime = 0;
-        let micContext, analyser, micStream, micRunning = false;
-        let previousChroma = new Float32Array(12).fill(0);
-        let smoothingAlpha = 0.65;
-        let micSource;
-        const noteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-
-        // Process Audio Frame (FFT + Peak Detection)
-        function processAdvancedAudio(features, webAnalyser) {
-            // Update DB Meter regardless of gate
-            let rms = features.rms || 0;
-            updateDBMeter(rms);
-
-            // NOISE GATE: Stop early if too quiet
-            if (!features || rms < NOISE_GATE_THRESHOLD) {
-                updateNoteTracker(new Set());
-                return;
-            }
-
-            const freqData = new Float32Array(webAnalyser.frequencyBinCount);
-            webAnalyser.getFloatFrequencyData(freqData);
-            const sampleRate = micContext.sampleRate;
-            const binSize = sampleRate / webAnalyser.fftSize;
-
-            let peaks = [];
-            const threshold = PEAK_THRESHOLD;
-
-            for (let i = 2; i < freqData.length - 2; i++) {
-                if (freqData[i] > threshold && freqData[i] > freqData[i - 1] && freqData[i] > freqData[i + 1]) {
-                    const freq = i * binSize;
-                    if (freq >= MIN_FREQUENCY && freq <= MAX_FREQUENCY) {
-                        peaks.push({ freq, db: freqData[i], bin: i });
-                    }
-                }
-            }
-
-            peaks.sort((a, b) => b.db - a.db);
-            peaks = peaks.slice(0, 15);
-
-            const frameNotes = new Set();
-            const processedFundamentals = [];
-
-            for (const peak of peaks) {
-                const midi = 12 * Math.log2(peak.freq / 440) + 69;
-                const roundedMidi = Math.round(midi);
-                const noteIndex = roundedMidi % 12;
-                let isProbablyFundamental = true;
-
-                for (const fund of processedFundamentals) {
-                    const ratio = peak.freq / fund.freq;
-                    const nearestHarmonic = Math.round(ratio);
-                    if (nearestHarmonic >= 2 && Math.abs(ratio - nearestHarmonic) < HARMONIC_TOLERANCE) {
-                        isProbablyFundamental = false;
-                        break;
-                    }
-                }
-
-                if (isProbablyFundamental) {
-                    frameNotes.add(noteIndex);
-                    processedFundamentals.push(peak);
-                }
-                if (frameNotes.size >= 8) break;
-            }
-
-            updateNoteTracker(frameNotes);
-
-            const now = Date.now();
-            if (now - lastCheckTime > 150) {
-                lastCheckTime = now;
-                validateChordFromNotes();
-            }
-        }
-
-        function updateDBMeter(rms) {
-            const bar = document.getElementById('dbMeterBar');
-            // Scale logic: RMS 0.1 is very loud usually.
-            // visual scale: min 0, max 0.1
-            let percent = Math.min(100, (rms / 0.1) * 100);
-            bar.style.width = percent + '%';
-
-            if (rms < NOISE_GATE_THRESHOLD) {
-                bar.style.backgroundColor = '#f44336'; // Red (Too Quiet / Ignored)
-            } else if (rms < SIGNAL_OK_THRESHOLD) {
-                bar.style.backgroundColor = '#ffeb3b'; // Yellow (Weak)
-            } else {
-                bar.style.backgroundColor = '#4caf50'; // Green (Good)
-            }
-        }
-
-        function updateNoteTracker(frameNotes) {
-            const now = Date.now();
-            for (let i = 0; i < 12; i++) {
-                let noteState = detectedNotes.get(i) || { confidence: 0, lastSeen: 0 };
-                if (frameNotes.has(i)) {
-                    noteState.confidence = Math.min(1, noteState.confidence + 0.5);
-                    noteState.lastSeen = now;
-                } else {
-                    if (now - noteState.lastSeen > NOTE_SUSTAIN_TIME) {
-                        noteState.confidence = Math.max(0, noteState.confidence - 0.2);
-                    }
-                }
-                detectedNotes.set(i, noteState);
-            }
-        }
-
-        function validateChordFromNotes() {
-            if (!currentChord || correctChordLocked) return;
-
-            // OPTIMIZATION: Dynamic Confidence Thresholds
-            let requiredConfidence = NOTE_CONFIDENCE_THRESHOLD;
-            const complexity = currentChord.all.length;
-
-            // Adjust for chord complexity
-            if (complexity >= 5) requiredConfidence *= 0.85;
-            if (complexity >= 6) requiredConfidence *= 0.80;
-
-            const stableNotes = [];
-            for (let i = 0; i < 12; i++) {
-                const state = detectedNotes.get(i);
-                if (state && state.confidence >= requiredConfidence) {
-                    stableNotes.push(i);
-                }
-            }
-
-            if (stableNotes.length === 0) {
-                if (!singleNoteMode) consecutiveDetections = 0;
-                return;
-            }
-
-            if (singleNoteMode) {
-                // Determine allowed notes for the current chord
-                let essentialNotesTarget = new Set(currentChord.essential.map(n => n % 12));
-                let allAllowedTarget = new Set(currentChord.all.map(n => n % 12));
-                const isRootless = document.getElementById('rootless').checked;
-                if (isRootless) {
-                    essentialNotesTarget.delete(currentChord.root % 12);
-                }
-
-                // In Single Note: STRICT FILTERING
-                // Only add notes that are part of the chord. Ignore everything else.
-                let newNoteAdded = false;
-                stableNotes.forEach(note => {
-                    // Check if note is allowed
-                    if (allAllowedTarget.has(note)) {
-                        if (!accumulatedNotes.has(note)) {
-                            accumulatedNotes.add(note);
-                            newNoteAdded = true;
-                        }
-                    }
-                    // If note is NOT allowed, we just ignore it (as per request)
-                });
-
-                if (newNoteAdded) {
-                    updateVirtualKeyboardHighlights();
-                }
-
-                // Check Validation with accumulated notes
-                const playedPitches = accumulatedNotes;
-                const hasAllEssential = [...essentialNotesTarget].every(note => playedPitches.has(note));
-                // hasNoWrongNotes check is redundant because we only add allowed notes, 
-                // but kept for logic consistency if something changes.
-                const hasNoWrongNotes = [...playedPitches].every(note => allAllowedTarget.has(note));
-
-                if (hasAllEssential && hasNoWrongNotes && playedPitches.size >= essentialNotesTarget.size) {
-                    correctChordLocked = true;
-                    triggerSuccess();
-                    resetAccumulatedNotes();
-                }
-
-            } else {
-                // Original Standard Mode Logic
-                if (stableNotes.length < 2) {
-                    consecutiveDetections = 0;
-                    return;
-                }
-
-                const playedPitches = new Set(stableNotes);
-                const isRootless = document.getElementById('rootless').checked;
-                let essentialNotes = new Set(currentChord.essential.map(n => n % 12));
-                if (isRootless) {
-                    essentialNotes.delete(currentChord.root % 12);
-                }
-                const allowedNotes = new Set(currentChord.all.map(n => n % 12));
-                const hasAllEssential = [...essentialNotes].every(note => playedPitches.has(note));
-                const hasNoWrongNotes = [...playedPitches].every(note => allowedNotes.has(note));
-
-                if (hasAllEssential && hasNoWrongNotes && playedPitches.size >= essentialNotes.size) {
-                    consecutiveDetections++;
-                    if (consecutiveDetections >= 2) {
-                        correctChordLocked = true;
-                        consecutiveDetections = 0;
-                        triggerSuccess();
-                        if (IS_MOBILE) {
-                            const noteNames = stableNotes.map(n => noteStrings[n]).join(' ');
-                            showToast(`✓ Detected: ${noteNames}`, 2000);
-                        }
-                    }
-                } else {
-                    consecutiveDetections = 0;
-                }
-            }
-        }
-
-        // ========== TEST QUALITÀ MICROFONO ==========
-        async function testMicrophoneQuality(webAnalyser) {
-            if (!micRunning) return;
-            let sumRMS = 0;
-            let samples = 0;
-            const startTime = Date.now();
-
-            const interval = setInterval(() => {
-                if (!micRunning) { clearInterval(interval); return; }
-                const timeData = new Uint8Array(webAnalyser.fftSize);
-                webAnalyser.getByteTimeDomainData(timeData);
-
-                let sum = 0;
-                for (let i = 0; i < timeData.length; i++) {
-                    const val = (timeData[i] - 128) / 128;
-                    sum += val * val;
-                }
-                const rms = Math.sqrt(sum / timeData.length);
-
-                sumRMS += rms;
-                samples++;
-
-                if (Date.now() - startTime > 2500) {
-                    clearInterval(interval);
-                    if (samples === 0) return;
-                    const avgRMS = sumRMS / samples;
-
-                    let quality = '❌ ' + t('micQualityPoor');
-                    let color = '#f44336';
-                    let advice = t('micAdviceTooWeak');
-
-                    if (avgRMS > 0.05) { quality = '✅ ' + t('micQualityExcellent'); color = '#4caf50'; advice = ''; }
-                    else if (avgRMS > 0.02) { quality = '⚠️ ' + t('micQualityGood'); color = '#ff9800'; advice = ''; }
-                    else if (avgRMS > 0.008) { quality = '⚠️ ' + t('micQualitySufficient'); color = '#ff9800'; advice = t('micAdviceGetCloser'); }
-
-                    const statusDiv = document.getElementById('micStatus');
-                    statusDiv.innerHTML = `${t('micActive')} | ${quality} <br><small>${advice} (RMS: ${avgRMS.toFixed(4)})</small>`;
-                    statusDiv.style.color = color;
-                    console.log(`🎤 QA Result: RMS=${avgRMS.toFixed(4)}`);
-                }
-            }, 100);
-        }
-        // Microphone Functions with Meyda and Chroma Template Matching
-        async function startMicrophone() {
-            if (midiAccess && midiAccess.inputs.size > 0) {
-                alert(t('micMidiConflict'));
-                return;
-            }
-            if (micRunning) return;
-
-            try {
-                // ========== INIZIALIZZAZIONE AUDIO CONTEXT ==========
-                if (!micContext) {
-                    micContext = new (window.AudioContext || window.webkitAudioContext)();
-                }
-
-                // CRITICO per iOS: resume context se sospeso
-                if (micContext.state === 'suspended') {
-                    await micContext.resume();
-                }
-
-                // Aggiorna smoothing in base al dispositivo
-                smoothingAlpha = getOptimalSmoothingAlpha();
-
-                // ========== CONSTRAINTS OTTIMIZZATI PER PIANOFORTE ==========
-                const constraints = {
-                    audio: {
-                        echoCancellation: false,    // CRITICO: non filtrare armoniche!
-                        noiseSuppression: false,    // Mantieni tutte le frequenze
-                        autoGainControl: false,     // Non normalizzare il volume
-                        sampleRate: 44100,          // Standard audio professionale
-                        channelCount: 1,            // Mono è sufficiente
-                        latency: 0.01               // Bassa latenza
-                    }
-                };
-
-                micStream = await navigator.mediaDevices.getUserMedia(constraints);
-                micSource = micContext.createMediaStreamSource(micStream);
-
-                // ========== CATENA DI FILTRI AUDIO ==========
-                // 1. Filtro passa-alto: elimina rumble sotto 80Hz
-                const highPass = micContext.createBiquadFilter();
-                highPass.type = "highpass";
-                highPass.frequency.value = 80;
-                highPass.Q.value = 0.7;
-                micSource.connect(highPass);
-
-                // 2. Filtro low-shelf: boost frequenze medie del pianoforte
-                const lowShelf = micContext.createBiquadFilter();
-                lowShelf.type = "lowshelf";
-                lowShelf.frequency.value = 250;
-                lowShelf.gain.value = 12;
-                highPass.connect(lowShelf);
-
-                // ========== WEB ANALYSER PER FFT ==========
-                const webAnalyser = micContext.createAnalyser();
-                webAnalyser.fftSize = FFT_SIZE;
-                webAnalyser.smoothingTimeConstant = 0.6;
-                webAnalyser.minDecibels = -90;
-                webAnalyser.maxDecibels = -10;
-                lowShelf.connect(webAnalyser);
-
-                // ========== VERIFICA DISPONIBILITÀ MEYDA ==========
-                if (typeof Meyda === 'undefined') {
-                    const script = document.createElement('script');
-                    script.src = "https://unpkg.com/meyda/dist/web/meyda.min.js";
-                    script.onload = () => { startMicrophone(); };
-                    document.head.appendChild(script);
-                    return;
-                }
-
-                // ========== CONFIGURAZIONE MEYDA OTTIMIZZATA ==========
-                const optimalBufferSize = getOptimalBufferSize();
-                console.log(`🎤 Mic Config: Device=${isMobileDevice() ? 'Mobile' : 'Desktop'}, BufferSize=${optimalBufferSize}, Smoothing=${smoothingAlpha.toFixed(2)}`);
-
-                analyser = Meyda.createMeydaAnalyzer({
-                    "audioContext": micContext,
-                    "source": lowShelf,
-                    "bufferSize": optimalBufferSize, // Adattivo al dispositivo!
-                    "featureExtractors": ["rms"],
-                    "callback": (features) => {
-                        processAdvancedAudio(features, webAnalyser);
-                    }
-                });
-
-                // Reset tracking
-                detectedNotes.clear();
-                consecutiveDetections = 0;
-                lastCheckTime = 0;
-                analyser.start();
-                micRunning = true;
-
-                // ========== UI FEEDBACK ==========
-                document.getElementById('micToggleBtn').textContent = t('micDisable');
-                document.getElementById('micStatus').textContent = t('micActive');
-                document.getElementById('micToggleBtn').textContent = t('micDisable');
-                document.getElementById('micStatus').textContent = t('micActive');
-                document.getElementById('micStatus').style.color = '#4caf50';
-                document.getElementById('singleNoteBtn').style.display = 'block';
-                document.getElementById('dbMeterContainer').style.display = 'block';
-
-                // Test qualità microfono (opzionale ma utile)
-                setTimeout(() => testMicrophoneQuality(webAnalyser), 1000);
-
-                if (IS_MOBILE) {
-                    setTimeout(() => {
-                        showToast('🎵 Suona l\'accordo vicino al telefono', 3000);
-                    }, 500);
-                }
-
-            } catch (err) {
-                console.error("Mic Error:", err);
-                let errorMsg = t('micError');
-
-                // Messaggi di errore specifici
-                if (err.name === 'NotAllowedError') {
-                    errorMsg = 'Microfono bloccato. Consenti l\'accesso nelle impostazioni.';
-                } else if (err.name === 'NotFoundError') {
-                    errorMsg = 'Nessun microfono trovato.';
-                }
-
-                document.getElementById('micStatus').textContent = errorMsg;
-                document.getElementById('micStatus').style.color = '#f44336';
-
-                if (IS_MOBILE) {
-                    showToast('❌ ' + errorMsg, 3000);
-                }
-            }
-        }
-
-        function stopMicrophone() {
-            if (!micRunning) return;
-            micRunning = false;
-
-            // Clear quality test interval if running (handled internally but safety first)
-            // ...
-
-            if (analyser) {
-                try { analyser.stop(); } catch (e) { }
-            }
-            if (micStream) {
-                micStream.getTracks().forEach(track => track.stop());
-            }
-            if (micSource) {
-                try { micSource.disconnect(); } catch (e) { }
-            }
-
-            document.getElementById('micToggleBtn').textContent = t('micEnable');
-            document.getElementById('micStatus').textContent = "";
-            document.getElementById('singleNoteBtn').style.display = 'none';
-            document.getElementById('dbMeterContainer').style.display = 'none';
-            singleNoteMode = false;
-            document.getElementById('singleNoteBtn').classList.remove('active');
-            resetAccumulatedNotes();
-            console.log("🎤 Microphone stopped and cleanup done.");
-        }
-
-        function toggleMicrophone() {
-            if (micRunning) stopMicrophone();
-            else startMicrophone();
-        }
-
-        function analyzeAudio(features) {
-            if (!features || !features.chroma || !currentChord || correctChordLocked) return;
-
-            // RMS check to ignore silence
-            if (features.rms < 0.003) {
-                return;
-            }
-
-            const inputChroma = features.chroma;
-
-            // 1. Temporal Smoothing (Exponential Moving Average)
-            for (let i = 0; i < 12; i++) {
-                previousChroma[i] = (previousChroma[i] * smoothingAlpha) + (inputChroma[i] * (1 - smoothingAlpha));
-            }
-
-            // Build Target Chroma Template
-            // Chroma is 12 bins: C, C#, D, D#, E, F, F#, G, G#, A, A#, B
-            const targetChroma = new Array(12).fill(0);
-            const essentialNotes = currentChord.essential; // [0, 4, 7] etc. corresponding to pitch classes
-
-            // Weight essential notes in template
-            essentialNotes.forEach(noteIndex => {
-                targetChroma[noteIndex % 12] = 1;
-            });
-
-            // Calculate Cosine Similarity on Smoothed Chroma
-            const similarity = calculateCosineSimilarity(previousChroma, targetChroma);
-
-            // 2. Dynamic Threshold based on Spectral Centroid
-            // Low centroid means bass-heavy signal. Bass signals often have messy harmonics.
-            // We lower the threshold slightly for bass signals.
-            let threshold = 0.88; // Default strict threshold
-
-            if (features.spectralCentroid) {
-                // spectralCentroid is in bins? Or Hz?
-                // Meyda docs: "The center of mass of the power spectrum". 
-                // With 8192 buffer, bin width is ~5-6Hz. 
-                // < 20 bins is < 120Hz approx.
-                if (features.spectralCentroid < 20) {
-                    threshold = 0.75; // More tolerant for deep bass
-                } else if (features.spectralCentroid < 40) {
-                    threshold = 0.82; // Mid-bass
-                }
-            }
-
-            // Strict Threshold for correctness
-            if (similarity > threshold) {
-                correctChordLocked = true;
-                triggerSuccess();
-            }
         }
 
         function calculateCosineSimilarity(vecA, vecB) {
@@ -2457,7 +2137,7 @@
             updateChordDisplay();
             document.getElementById('status').textContent = ''; document.getElementById('revealNotes').style.display = 'none';
             chordCounter++; document.getElementById('chordCount').textContent = `${t('chordsGenerated')}: ${chordCounter}`;
-            activeNotes.clear(); fixedNotes.clear();
+            correctChordLocked = false; activeNotes.clear(); fixedNotes.clear();
             Object.values(virtualKeys).forEach(key => key.classList.remove('pressed'));
             if (typeof resetAccumulatedNotes === 'function') resetAccumulatedNotes();
         }
