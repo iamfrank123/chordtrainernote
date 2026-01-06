@@ -1919,6 +1919,85 @@
             updateChordDisplay();
         }
 
+        function getSelectedChordTypes() { return Array.from(document.querySelectorAll('.chordType:checked')).map(cb => cb.value); }
+        function getSelectedAccidentals() { return Array.from(document.querySelectorAll('.accidental:checked')).map(cb => cb.value); }
+        function generateNoteName(index) {
+            const selectedAccidentals = getSelectedAccidentals(); const noteIndex = index % 12;
+            if (selectedAccidentals.length === 1 && selectedAccidentals[0] === 'natural') { return naturalNoteIndexes.includes(noteIndex) ? noteNamesSharp[noteIndex] : null; }
+            const isSharp = noteNamesSharp[noteIndex].length > 1, isFlat = noteNamesFlat[noteIndex].length > 1;
+            const sharpAvailable = selectedAccidentals.includes('sharp'), flatAvailable = selectedAccidentals.includes('flat');
+            if (selectedAccidentals.length === 0) return noteNamesSharp[noteIndex];
+            if (sharpAvailable && isSharp && flatAvailable && isFlat) return Math.random() < 0.5 ? noteNamesSharp[noteIndex] : noteNamesFlat[noteIndex];
+            if (sharpAvailable && isSharp) return noteNamesSharp[noteIndex];
+            if (flatAvailable && isFlat) return noteNamesFlat[noteIndex];
+            if (selectedAccidentals.includes('natural') && naturalNoteIndexes.includes(noteIndex)) return noteNamesSharp[noteIndex];
+            return null;
+        }
+
+        function startTrainer() {
+            if (running) return;
+            const types = getSelectedChordTypes();
+            if (types.length === 0) { document.getElementById('chordDisplay').textContent = t('selectOneType'); document.getElementById('status').textContent = ''; return; }
+            running = true; chordCounter = 0; correctChordLocked = false; requestMIDIAccess(); nextChord();
+        }
+        function resetTrainer() {
+            running = false; clearTimeout(newChordTimeout);
+            document.getElementById('chordDisplay').textContent = ''; document.getElementById('status').textContent = ''; document.getElementById('revealNotes').style.display = 'none';
+            document.getElementById('chordCount').textContent = `${t('chordsGenerated')}: 0`;
+            activeNotes.clear(); fixedNotes.clear(); Object.values(virtualKeys).forEach(key => key.classList.remove('pressed'));
+            currentChord = null; correctChordLocked = false; chordCounter = 0;
+            document.getElementById('selectAllChords').checked = false; document.getElementById('selectAllAccidentals').checked = false; document.getElementById('rootless').checked = false;
+            document.querySelectorAll('.chordType, .accidental').forEach(cb => cb.checked = false);
+            chordHistory = []; historyIndex = -1; updateEnabledChordsReminder();
+            if (typeof resetAccumulatedNotes === 'function') resetAccumulatedNotes();
+        }
+
+        function nextChord() {
+            if (!running) return;
+            clearDisplayedChord();
+            const types = getSelectedChordTypes();
+            if (types.length === 0) { document.getElementById('chordDisplay').textContent = t('selectOneType'); document.getElementById('status').textContent = ''; return; }
+            const allowedRoots = [];
+            for (let i = 0; i < 12; i++) { if (generateNoteName(i) !== null) allowedRoots.push(i); }
+            if (allowedRoots.length === 0) { document.getElementById('chordDisplay').textContent = t('selectAccidental'); document.getElementById('status').textContent = ''; return; }
+            let newChord;
+            if (historyIndex < chordHistory.length - 1) {
+                historyIndex++; newChord = chordHistory[historyIndex];
+            } else {
+                const root = allowedRoots[Math.floor(Math.random() * allowedRoots.length)];
+                const type = types[Math.floor(Math.random() * types.length)];
+                const definition = chordDefinitions[type];
+                const essentialNotes = definition.essential.map(i => (root + i) % 12);
+                const allNotes = [...definition.essential, ...definition.optional].map(i => (root + i) % 12);
+                let chordName = generateNoteName(root) + type;
+                newChord = { root, type, name: chordName, essential: essentialNotes, all: [...new Set(allNotes)] };
+                chordHistory.push(newChord); historyIndex = chordHistory.length - 1;
+            }
+            currentChord = newChord;
+            updateChordDisplay();
+            document.getElementById('status').textContent = ''; document.getElementById('revealNotes').style.display = 'none';
+            chordCounter++; document.getElementById('chordCount').textContent = `${t('chordsGenerated')}: ${chordCounter}`;
+            correctChordLocked = false; activeNotes.clear(); fixedNotes.clear();
+            Object.values(virtualKeys).forEach(key => key.classList.remove('pressed'));
+            if (typeof resetAccumulatedNotes === 'function') resetAccumulatedNotes();
+        }
+
+        function previousChord() {
+            if (historyIndex > 0) {
+                clearDisplayedChord(); historyIndex--;
+                currentChord = chordHistory[historyIndex];
+                updateChordDisplay();
+                document.getElementById('status').textContent = ''; document.getElementById('revealNotes').style.display = 'none';
+                activeNotes.clear(); fixedNotes.clear(); Object.values(virtualKeys).forEach(key => key.classList.remove('pressed'));
+                if (typeof resetAccumulatedNotes === 'function') resetAccumulatedNotes();
+
+                // Restore history if available
+                if (currentChord.solvedVoicing && currentChord.solvedVoicing.length > 0) {
+                    restoreSolvedVoicing(currentChord.solvedVoicing);
+                }
+            } else { document.getElementById('status').textContent = t('noPrevChords'); document.getElementById('status').className = 'status-wrong'; }
+        }
+
         window.addEventListener('load', async () => {
             // PWA Install Functionality
             let deferredPrompt;
