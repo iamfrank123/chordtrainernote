@@ -904,6 +904,27 @@
             }
         }
 
+        /* DB Meter Styles */
+        #dbMeterContainer {
+            width: 100%;
+            height: 10px;
+            background-color: #333;
+            border-radius: 5px;
+            margin-top: 5px;
+            overflow: hidden;
+            border: 1px solid #555;
+            display: none;
+            /* Hidden by default, shown when mic active */
+        }
+
+        #dbMeterBar {
+            height: 100%;
+            width: 0%;
+            background-color: #f44336;
+            /* Start Read */
+            transition: width 0.1s ease, background-color 0.2s ease;
+        }
+
         /* Single Note Mode Styles */
         #singleNoteBtn.active {
             background-color: #ff9800;
@@ -1097,13 +1118,17 @@
         <div id="chordCount">Chords generated: 0</div>
         <div id="enabledChordsReminder">Enabled chord types: </div>
         <div id="midiStatus">MIDI not connected</div>
-        <div id="midiStatus">MIDI not connected</div>
+
+        <!-- Mic Controls & Meter -->
         <div style="display: flex; gap: 10px; align-items: center; margin-top: 5px;">
             <button id="micToggleBtn" style="padding: 5px 10px; font-size: 0.9em; cursor: pointer; flex: 1;"
                 data-i18n="micEnable">Enable Mic 🎤</button>
             <button id="singleNoteBtn"
                 style="padding: 5px 10px; font-size: 0.9em; cursor: pointer; flex: 1; display: none;"
                 data-i18n="singleNoteMode">Note Singole 🎵</button>
+        </div>
+        <div id="dbMeterContainer">
+            <div id="dbMeterBar"></div>
         </div>
         <div id="micStatus" style="font-size: 0.8em; margin-top: 2px;"></div>
     </div>
@@ -1613,6 +1638,10 @@
         const RMS_THRESHOLD = IS_MOBILE ? 0.001 : 0.002;
         const HARMONIC_TOLERANCE = IS_MOBILE ? 0.1 : 0.05;
 
+        // NOISE GATE OPTIMIZATION
+        const NOISE_GATE_THRESHOLD = 0.02; // Minimum RMS to process audio
+        const SIGNAL_OK_THRESHOLD = 0.05;  // RMS for Green meter
+
         // Global State
         let detectedNotes = new Map();
         let consecutiveDetections = 0;
@@ -1625,7 +1654,12 @@
 
         // Process Audio Frame (FFT + Peak Detection)
         function processAdvancedAudio(features, webAnalyser) {
-            if (!features || features.rms < 0.003) {
+            // Update DB Meter regardless of gate
+            let rms = features.rms || 0;
+            updateDBMeter(rms);
+
+            // NOISE GATE: Stop early if too quiet
+            if (!features || rms < NOISE_GATE_THRESHOLD) {
                 updateNoteTracker(new Set());
                 return;
             }
@@ -1684,6 +1718,22 @@
             }
         }
 
+        function updateDBMeter(rms) {
+            const bar = document.getElementById('dbMeterBar');
+            // Scale logic: RMS 0.1 is very loud usually.
+            // visual scale: min 0, max 0.1
+            let percent = Math.min(100, (rms / 0.1) * 100);
+            bar.style.width = percent + '%';
+
+            if (rms < NOISE_GATE_THRESHOLD) {
+                bar.style.backgroundColor = '#f44336'; // Red (Too Quiet / Ignored)
+            } else if (rms < SIGNAL_OK_THRESHOLD) {
+                bar.style.backgroundColor = '#ffeb3b'; // Yellow (Weak)
+            } else {
+                bar.style.backgroundColor = '#4caf50'; // Green (Good)
+            }
+        }
+
         function updateNoteTracker(frameNotes) {
             const now = Date.now();
             for (let i = 0; i < 12; i++) {
@@ -1725,13 +1775,26 @@
             }
 
             if (singleNoteMode) {
-                // In Single Note start adding stable notes
+                // Determine allowed notes for the current chord
+                let essentialNotesTarget = new Set(currentChord.essential.map(n => n % 12));
+                let allAllowedTarget = new Set(currentChord.all.map(n => n % 12));
+                const isRootless = document.getElementById('rootless').checked;
+                if (isRootless) {
+                    essentialNotesTarget.delete(currentChord.root % 12);
+                }
+
+                // In Single Note: STRICT FILTERING
+                // Only add notes that are part of the chord. Ignore everything else.
                 let newNoteAdded = false;
                 stableNotes.forEach(note => {
-                    if (!accumulatedNotes.has(note)) {
-                        accumulatedNotes.add(note);
-                        newNoteAdded = true;
+                    // Check if note is allowed
+                    if (allAllowedTarget.has(note)) {
+                        if (!accumulatedNotes.has(note)) {
+                            accumulatedNotes.add(note);
+                            newNoteAdded = true;
+                        }
                     }
+                    // If note is NOT allowed, we just ignore it (as per request)
                 });
 
                 if (newNoteAdded) {
@@ -1740,16 +1803,12 @@
 
                 // Check Validation with accumulated notes
                 const playedPitches = accumulatedNotes;
-                const isRootless = document.getElementById('rootless').checked;
-                let essentialNotes = new Set(currentChord.essential.map(n => n % 12));
-                if (isRootless) {
-                    essentialNotes.delete(currentChord.root % 12);
-                }
-                const allowedNotes = new Set(currentChord.all.map(n => n % 12));
-                const hasAllEssential = [...essentialNotes].every(note => playedPitches.has(note));
-                const hasNoWrongNotes = [...playedPitches].every(note => allowedNotes.has(note));
+                const hasAllEssential = [...essentialNotesTarget].every(note => playedPitches.has(note));
+                // hasNoWrongNotes check is redundant because we only add allowed notes, 
+                // but kept for logic consistency if something changes.
+                const hasNoWrongNotes = [...playedPitches].every(note => allAllowedTarget.has(note));
 
-                if (hasAllEssential && hasNoWrongNotes && playedPitches.size >= essentialNotes.size) {
+                if (hasAllEssential && hasNoWrongNotes && playedPitches.size >= essentialNotesTarget.size) {
                     correctChordLocked = true;
                     triggerSuccess();
                     resetAccumulatedNotes();
@@ -1928,6 +1987,7 @@
                 document.getElementById('micStatus').textContent = t('micActive');
                 document.getElementById('micStatus').style.color = '#4caf50';
                 document.getElementById('singleNoteBtn').style.display = 'block';
+                document.getElementById('dbMeterContainer').style.display = 'block';
 
                 // Test qualità microfono (opzionale ma utile)
                 setTimeout(() => testMicrophoneQuality(webAnalyser), 1000);
@@ -1978,6 +2038,7 @@
             document.getElementById('micToggleBtn').textContent = t('micEnable');
             document.getElementById('micStatus').textContent = "";
             document.getElementById('singleNoteBtn').style.display = 'none';
+            document.getElementById('dbMeterContainer').style.display = 'none';
             singleNoteMode = false;
             document.getElementById('singleNoteBtn').classList.remove('active');
             resetAccumulatedNotes();
