@@ -361,6 +361,20 @@
             border-bottom: 1px solid #2e7d32;
         }
 
+        /* Hint Styles (Display Chord) */
+        .key.hint {
+            background-color: #29b6f6 !important;
+            /* Light Blue */
+            box-shadow: 0 0 10px #29b6f6;
+        }
+
+        /* History Styles (Solved Voicing) */
+        .key.history {
+            background-color: #81c784 !important;
+            /* Lighter Green */
+            border: 2px solid #2e7d32;
+        }
+
         #singleNoteBtn.active {
             background-color: #ff9800 !important;
             color: #111;
@@ -1121,16 +1135,15 @@
         let fixedNotesMode = false;
         let fixedNotes = new Set();
         let virtualKeys = {};
-        let chordHistory = [];
-        let historyIndex = -1;
-        let isChordDisplayed = false;
-
-        // Microphone variables
+        // Global State
+        let detectedNotes = new Map();
+        let consecutiveDetections = 0;
+        let lastCheckTime = 0;
         let micContext, analyser, micStream, micRunning = false;
         let previousChroma = new Float32Array(12).fill(0);
         let smoothingAlpha = 0.65;
         let micSource;
-        let pitchDetectionFrame;
+        let webAnalyser; // Analizzatore WebAudio nativo per FFT precisa
         const noteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
         const translations = {
@@ -1565,7 +1578,13 @@
                 lowShelf.gain.value = 12;
                 micSource.connect(lowShelf);
 
-                // Initialize Meyda
+                // ========== NATIVE WEB ANALYSER FOR EXACT PITCH (FFT) ==========
+                webAnalyser = micContext.createAnalyser();
+                webAnalyser.fftSize = 8192; // High resolution
+                webAnalyser.smoothingTimeConstant = 0; // Raw data
+                lowShelf.connect(webAnalyser);
+
+                // Initialize Meyda checks RMS/Energy/Spectral Centroid
                 if (typeof Meyda === 'undefined') {
                     const script = document.createElement('script');
                     script.src = "https://unpkg.com/meyda/dist/web/meyda.min.js";
@@ -1626,43 +1645,57 @@
         }
 
         function analyzeAudio(features) {
-            if (!features || !features.chroma || !currentChord || correctChordLocked) return;
+            if (!features || !currentChord || correctChordLocked) return;
 
             const rms = features.rms || 0;
             updateDBMeter(rms);
 
             // 1. INTENSITY GATING
-            // RED (< 0.02): Ignore everything
             if (rms < RMS_RED_THRESHOLD) return;
-
-            // YELLOW (< 0.05): Wait (do not process)
             if (rms < RMS_GREEN_THRESHOLD) return;
 
-            // GREEN (>= 0.05): Proceed with detection
-
-            const inputChroma = features.chroma;
-
-            // 2. SINGLE NOTE MODE LOGIC
+            // 2. SINGLE NOTE MODE LOGIC (Exact Pitch Detection)
             if (singleNoteMode) {
-                // Find strongest note in chroma
-                let maxVal = 0;
-                let detectedNote = -1;
-                for (let i = 0; i < 12; i++) {
-                    if (inputChroma[i] > maxVal) {
-                        maxVal = inputChroma[i];
-                        detectedNote = i;
+                // Use Native WebAnalyser Frequency Data for Exact Peak
+                const bufferLength = webAnalyser.frequencyBinCount;
+                const dataArray = new Float32Array(bufferLength);
+                webAnalyser.getFloatFrequencyData(dataArray);
+
+                let maxDb = -Infinity;
+                let maxBin = -1;
+
+                // Scan relevant frequency range (e.g. 60Hz - 2000Hz)
+                // Bin size = 44100 / 8192 = ~5.38 Hz
+                const minBin = Math.floor(60 / 5.38);
+                const maxBinRange = Math.floor(2000 / 5.38);
+
+                for (let i = minBin; i < maxBinRange; i++) {
+                    if (dataArray[i] > maxDb) {
+                        maxDb = dataArray[i];
+                        maxBin = i;
                     }
                 }
 
-                // Strict Threshold for single note definition
-                // If the strongest note is dominant enough
-                if (maxVal > 0.8 && detectedNote !== -1) {
-                    processSingleNote(detectedNote);
+                // If peak is distinguishable (e.g. > -50dB depending on noise floor)
+                // But we already have RMS Gate, so just take the max peak?
+                // Let's rely on the RMS Gate we just passed.
+
+                // Refine frequency with interpolation? Optional.
+                const fundamentalFreq = maxBin * (micContext.sampleRate / webAnalyser.fftSize);
+
+                // Determine MIDI Note
+                // MIDI = 69 + 12 * log2(freq / 440)
+                if (fundamentalFreq > 50) {
+                    const midiNum = Math.round(69 + 12 * Math.log2(fundamentalFreq / 440));
+                    // process specific MIDI note (0-127)
+                    processSingleNote(midiNum);
                 }
-                return; // Skip standard chord detection in this mode
+                return;
             }
 
             // --- STANDARD CHORD MODE (Original Logic) ---
+            if (!features.chroma) return;
+            const inputChroma = features.chroma;
             // 1. Temporal Smoothing (Exponential Moving Average)
             for (let i = 0; i < 12; i++) {
                 previousChroma[i] = (previousChroma[i] * smoothingAlpha) + (inputChroma[i] * (1 - smoothingAlpha));
@@ -1696,8 +1729,10 @@
             }
         }
 
-        function processSingleNote(noteIndex) {
+        function processSingleNote(midiNote) {
             if (correctChordLocked) return;
+
+            const noteClass = midiNote % 12;
 
             // STRICT FILTERING: Only accept notes that belong to the chord
             const allAllowedTarget = new Set(currentChord.all.map(n => n % 12));
@@ -1707,21 +1742,24 @@
                 essentialNotesTarget.delete(currentChord.root % 12);
             }
 
-            if (allAllowedTarget.has(noteIndex)) {
-                // It's a valid note! Add to accumulated if not already there
-                if (!accumulatedNotes.has(noteIndex)) {
-                    accumulatedNotes.add(noteIndex);
+            if (allAllowedTarget.has(noteClass)) {
+                // Add EXACT MIDI NOTE to accumulated
+                if (!accumulatedNotes.has(midiNote)) {
+                    accumulatedNotes.add(midiNote);
                     updateVirtualKeyboardHighlights();
                 }
             }
-            // Wrong notes are simply IGNORED (no visual feedback, as requested)
+            // Wrong notes ignored
 
-            // Check if chord is complete
-            const playedPitches = accumulatedNotes;
+            const playedPitches = new Set([...accumulatedNotes].map(m => m % 12));
             const hasAllEssential = [...essentialNotesTarget].every(note => playedPitches.has(note));
 
             if (hasAllEssential && playedPitches.size >= essentialNotesTarget.size) {
                 correctChordLocked = true;
+
+                // Save solution for history
+                currentChord.solvedVoicing = Array.from(accumulatedNotes).sort((a, b) => a - b);
+
                 triggerSuccess();
                 resetAccumulatedNotes();
             }
@@ -1761,6 +1799,8 @@
         function resetAccumulatedNotes() {
             accumulatedNotes.clear();
             updateVirtualKeyboardHighlights();
+            // Also clear history visuals
+            document.querySelectorAll('.key.history').forEach(k => k.classList.remove('history'));
         }
 
         function updateVirtualKeyboardHighlights() {
@@ -1769,15 +1809,10 @@
 
             if (!singleNoteMode) return;
 
-            // Highlight accumulated notes
-            accumulatedNotes.forEach(noteIndex => {
-                // Find all keys with this note index (all octaves)
-                for (let midi = 48; midi <= 83; midi++) {
-                    if (midi % 12 === noteIndex) {
-                        if (virtualKeys[midi]) {
-                            virtualKeys[midi].classList.add('accumulated');
-                        }
-                    }
+            // Highlight SPECIFIC accumulated notes
+            accumulatedNotes.forEach(midiNote => {
+                if (virtualKeys[midiNote]) {
+                    virtualKeys[midiNote].classList.add('accumulated');
                 }
             });
         }
@@ -2037,7 +2072,17 @@
             setupVirtualKeyboard(); updateEnabledChordsReminder(); document.querySelectorAll('.chordType').forEach(cb => cb.addEventListener('change', updateEnabledChordsReminder));
         });
 
-        function clearDisplayedChord() { if (isChordDisplayed) { fixedNotes.clear(); Object.values(virtualKeys).forEach(key => key.classList.remove('pressed')); if (sampler && Tone.context.state === 'running') sampler.releaseAll(); isChordDisplayed = false; } }
+        function clearDisplayedChord() {
+            if (isChordDisplayed) {
+                // Just clear visuals and audio, checkChord/activeNotes not affected because displayChord doesn't set them anymore
+                Object.values(virtualKeys).forEach(key => {
+                    key.classList.remove('hint');
+                    key.classList.remove('history'); // Clear history too when clearing display
+                });
+                if (sampler && Tone.context.state === 'running') sampler.releaseAll();
+                isChordDisplayed = false;
+            }
+        }
 
         function setupVirtualKeyboard() {
             const keyboardDiv = document.getElementById("keyboard");
@@ -2150,7 +2195,22 @@
                 document.getElementById('status').textContent = ''; document.getElementById('revealNotes').style.display = 'none';
                 activeNotes.clear(); fixedNotes.clear(); Object.values(virtualKeys).forEach(key => key.classList.remove('pressed'));
                 if (typeof resetAccumulatedNotes === 'function') resetAccumulatedNotes();
+
+                // Restore history if available
+                if (currentChord.solvedVoicing && currentChord.solvedVoicing.length > 0) {
+                    restoreSolvedVoicing(currentChord.solvedVoicing);
+                }
             } else { document.getElementById('status').textContent = t('noPrevChords'); document.getElementById('status').className = 'status-wrong'; }
+        }
+
+        function restoreSolvedVoicing(voicing) {
+            // Visual only, showing how it was solved
+            voicing.forEach(midiNote => {
+                if (virtualKeys[midiNote]) {
+                    virtualKeys[midiNote].classList.add('history');
+                }
+            });
+            // Optional: Play it? No, user just said "mostrato" (shown).
         }
 
         function revealChord() { if (!currentChord) return; const notes = currentChord.all.map(noteIndex => generateNoteName(noteIndex)).filter(Boolean); let notesText = `${t('notes')} ${notes.join(' ')}`; document.getElementById('revealNotes').textContent = notesText; document.getElementById('revealNotes').style.display = 'block'; }
@@ -2179,11 +2239,25 @@
         }
 
         function displayChord() {
-            if (!currentChord) return; clearDisplayedChord();
-            const isClosePosition = document.getElementById('closePositionToggle').checked; let midiNotes = [];
+            if (!currentChord) return;
+            clearDisplayedChord();
+            const isClosePosition = document.getElementById('closePositionToggle').checked;
+            let midiNotes = [];
             if (isClosePosition) { midiNotes = calculateClosePositionVoicing(currentChord.all, currentChord.root); }
             else { midiNotes = calculateDefaultVoicing(currentChord.all, currentChord.root); }
-            midiNotes.forEach(midiNote => { if (virtualKeys[midiNote]) { fixedNotes.add(midiNote); playNote(midiNote, 100, false); } });
+
+            midiNotes.forEach(midiNote => {
+                if (virtualKeys[midiNote]) {
+                    // Visual Hint ONLY
+                    virtualKeys[midiNote].classList.add('hint');
+
+                    // Audio Playback (Direct, no state tracking)
+                    if (sampler && Tone.context.state === 'running') {
+                        const noteName = midiToNoteName(midiNote);
+                        sampler.triggerAttackRelease(noteName, "2n");
+                    }
+                }
+            });
             isChordDisplayed = true;
         }
         function requestMIDIAccess() { if (navigator.requestMIDIAccess) { navigator.requestMIDIAccess().then(onMIDISuccess, () => { document.getElementById('midiStatus').textContent = t('midiError'); }); } else { document.getElementById('midiStatus').textContent = t('midiUnsupported'); } }
@@ -2196,6 +2270,9 @@
         function checkChord() {
             if (!running || !currentChord || correctChordLocked) return;
             const playedNotesRaw = fixedNotesMode ? fixedNotes : activeNotes;
+            // Need a copy for saving history
+            const playedPitchesRaw = new Set(playedNotesRaw);
+
             if (playedNotesRaw.size === 0) { document.getElementById('status').textContent = ''; return; }
             const playedPitches = new Set([...playedNotesRaw].map(n => n % 12));
             const isRootless = document.getElementById('rootless').checked;
@@ -2206,6 +2283,10 @@
             let isCorrect = hasAllEssential && hasNoWrongNotes;
             if (isCorrect) {
                 correctChordLocked = true;
+
+                // SAVE HISTORY (Voicing)
+                currentChord.solvedVoicing = Array.from(playedPitchesRaw).sort((a, b) => a - b);
+
                 document.getElementById('status').textContent = t('correct'); document.getElementById('status').className = 'status-correct';
                 if (document.getElementById('audioToggle').checked) { new Audio('https://s3.amazonaws.com/duolingo-f/ding.mp3').play(); }
                 if (document.getElementById('automaticAdvanceToggle').checked) { clearTimeout(newChordTimeout); newChordTimeout = setTimeout(() => { nextChord(); }, 1000); }
