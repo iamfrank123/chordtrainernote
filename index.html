@@ -24,6 +24,8 @@
     <!-- Description -->
     <meta name="description"
         content="Learn and practice jazz chords with interactive MIDI support and comprehensive chord library" />
+    <!-- Security Module - Must load first -->
+    <script src="./security.js" defer></script>
     <style>
         * {
             box-sizing: border-box;
@@ -349,61 +351,10 @@
             background: #6cf !important;
         }
 
-        /* Single Note Mode Styles */
-        .key.accumulated {
-            background-color: #4caf50 !important;
-            /* Green highlight for accumulated notes */
-        }
-
-        .key.black.accumulated {
-            background-color: #388e3c !important;
-            /* Darker green for black keys */
-            border-bottom: 1px solid #2e7d32;
-        }
-
-        /* Hint Styles (Display Chord) */
-        .key.hint {
-            background-color: #29b6f6 !important;
-            /* Light Blue */
-            box-shadow: 0 0 10px #29b6f6;
-        }
-
-        /* History Styles (Solved Voicing) */
-        .key.history {
-            background-color: #81c784 !important;
-            /* Lighter Green */
-            border: 2px solid #2e7d32;
-        }
-
-        #singleNoteBtn.active {
-            background-color: #ff9800 !important;
-            color: #111;
-        }
-
-        /* DB Meter Styles */
-        #dbMeterContainer {
-            width: 100%;
-            height: 12px;
-            background-color: #222;
-            border-radius: 6px;
-            margin-top: 8px;
-            overflow: hidden;
-            border: 1px solid #444;
-            display: none;
-            /* Hidden by default */
-            position: relative;
-        }
-
-        #dbMeterBar {
-            height: 100%;
-            width: 0%;
-            background-color: #f44336;
-            /* Start Red */
-            transition: width 0.05s linear, background-color 0.1s ease;
-        }
-
         .premium-feature.locked {
             opacity: 0.6;
+            pointer-events: none;
+            /* Prevent any interaction when locked */
         }
 
         .premium-feature.locked summary {
@@ -413,6 +364,15 @@
 
         .premium-feature.locked .chord-type-list {
             display: none;
+        }
+
+        /* Additional security: Make premium content unselectable */
+        .premium-feature.locked * {
+            -webkit-user-select: none !important;
+            -moz-user-select: none !important;
+            -ms-user-select: none !important;
+            user-select: none !important;
+            -webkit-touch-callout: none !important;
         }
 
         #premiumSection {
@@ -980,11 +940,9 @@
                 <details>
                     <summary data-i18n="triads">Triads</summary>
                     <div class="chord-type-list">
-                        <label><input type="checkbox" class="chordType" value="maj" checked> <span
-                                data-i18n="chordMaj">Major
+                        <label><input type="checkbox" class="chordType" value="maj"> <span data-i18n="chordMaj">Major
                                 (maj)</span></label>
-                        <label><input type="checkbox" class="chordType" value="min" checked> <span
-                                data-i18n="chordMin">Minor
+                        <label><input type="checkbox" class="chordType" value="min"> <span data-i18n="chordMin">Minor
                                 (min)</span></label>
                         <label><input type="checkbox" class="chordType" value="dim"> <span
                                 data-i18n="chordDim">Diminished</span></label>
@@ -1057,12 +1015,11 @@
                     <strong class="controls-title" data-i18n="preferences">Preferences:</strong>
                     <label><input type="checkbox" id="selectAllAccidentals"> <span data-i18n="enableAllPref">Enable all
                             preferences</span></label>
-                    <label><input type="checkbox" class="accidental" value="sharp" checked> <span
-                            data-i18n="sharps">Sharps
+                    <label><input type="checkbox" class="accidental" value="sharp"> <span data-i18n="sharps">Sharps
                             (#)</span></label>
-                    <label><input type="checkbox" class="accidental" value="flat" checked> <span data-i18n="flats">Flats
+                    <label><input type="checkbox" class="accidental" value="flat"> <span data-i18n="flats">Flats
                             (b)</span></label>
-                    <label><input type="checkbox" class="accidental" value="natural" checked> <span
+                    <label><input type="checkbox" class="accidental" value="natural"> <span
                             data-i18n="naturals">Naturals</span></label>
                 </div>
             </div>
@@ -1113,20 +1070,8 @@
         <div id="chordCount">Chords generated: 0</div>
         <div id="enabledChordsReminder">Enabled chord types: </div>
         <div id="midiStatus">MIDI not connected</div>
-
-        <!-- Mic Controls -->
-        <div style="display: flex; gap: 10px; align-items: center; margin-top: 5px;">
-            <button id="micToggleBtn" style="padding: 5px 10px; font-size: 0.9em; cursor: pointer; flex: 1;"
-                data-i18n="micEnable">Enable Mic 🎤</button>
-            <button id="singleNoteBtn"
-                style="padding: 5px 10px; font-size: 0.9em; cursor: pointer; flex: 1; display: none;"
-                data-i18n="singleNoteMode">Note Singole 🎵</button>
-        </div>
-
-        <div id="dbMeterContainer">
-            <div id="dbMeterBar"></div>
-        </div>
-
+        <button id="micToggleBtn" style="margin-top: 5px; padding: 5px 10px; font-size: 0.9em; cursor: pointer;"
+            data-i18n="micEnable">Enable Mic 🎤</button>
         <div id="micStatus" style="font-size: 0.8em; margin-top: 2px;"></div>
     </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
@@ -1138,15 +1083,16 @@
         let fixedNotesMode = false;
         let fixedNotes = new Set();
         let virtualKeys = {};
-        // Global State
-        let detectedNotes = new Map();
-        let consecutiveDetections = 0;
-        let lastCheckTime = 0;
+        let chordHistory = [];
+        let historyIndex = -1;
+        let isChordDisplayed = false;
+
+        // Microphone variables
         let micContext, analyser, micStream, micRunning = false;
         let previousChroma = new Float32Array(12).fill(0);
         let smoothingAlpha = 0.65;
         let micSource;
-        let webAnalyser; // Analizzatore WebAudio nativo per FFT precisa
+        let pitchDetectionFrame;
         const noteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
         const translations = {
@@ -1468,6 +1414,11 @@
             setCookie('deviceFingerprint', fingerprint, 3650);
             await saveToIndexedDB('keyboardProUnlocked', 'true');
             await saveToIndexedDB('deviceFingerprint', fingerprint);
+
+            // Notify security manager
+            if (window.securityManager) {
+                window.securityManager.setLicenseValid(true);
+            }
         }
 
         function lockFeatures() {
@@ -1530,8 +1481,17 @@
                     await saveToIndexedDB('keyboardProUnlocked', 'true');
                     await saveToIndexedDB('deviceFingerprint', currentFingerprint);
                 }
+
+                // Notify security manager
+                if (window.securityManager) {
+                    window.securityManager.setLicenseValid(true);
+                }
             } else {
                 lockFeatures();
+                // Notify security manager
+                if (window.securityManager) {
+                    window.securityManager.setLicenseValid(false);
+                }
             }
         }
         // --- End License Key System ---
@@ -1544,15 +1504,6 @@
         const naturalNoteIndexes = [0, 2, 4, 5, 7, 9, 11];
         const midiToNoteName = midi => { const octave = Math.floor(midi / 12) - 1; const noteIndex = midi % 12; return noteNamesSharp[noteIndex] + octave; };
         function updateEnabledChordsReminder() { const enabledChords = Array.from(document.querySelectorAll('.chordType:checked')).map(cb => cb.value).join(', '); document.getElementById('enabledChordsReminder').textContent = `${t('enabledTypes')}: ${enabledChords}`; }
-
-        // --- SINGLE NOTE MODE STATE ---
-        let singleNoteMode = false;
-        let accumulatedNotes = new Set();
-
-        // --- CONSTANTS ---
-        const RMS_RED_THRESHOLD = 0.02;    // Below this = Silence/Ignore
-        const RMS_GREEN_THRESHOLD = 0.05;  // Above this = Active Detection
-        // Yellow is between RED and GREEN
 
         // Microphone Functions
         // Microphone Functions with Meyda and Chroma Template Matching
@@ -1581,13 +1532,7 @@
                 lowShelf.gain.value = 12;
                 micSource.connect(lowShelf);
 
-                // ========== NATIVE WEB ANALYSER FOR EXACT PITCH (FFT) ==========
-                webAnalyser = micContext.createAnalyser();
-                webAnalyser.fftSize = 8192; // High resolution
-                webAnalyser.smoothingTimeConstant = 0; // Raw data
-                lowShelf.connect(webAnalyser);
-
-                // Initialize Meyda checks RMS/Energy/Spectral Centroid
+                // Initialize Meyda
                 if (typeof Meyda === 'undefined') {
                     const script = document.createElement('script');
                     script.src = "https://unpkg.com/meyda/dist/web/meyda.min.js";
@@ -1615,10 +1560,6 @@
                 document.getElementById('micStatus').textContent = t('micActive');
                 document.getElementById('micStatus').style.color = '#4caf50';
 
-                // Show Single Note controls
-                document.getElementById('singleNoteBtn').style.display = 'block';
-                document.getElementById('dbMeterContainer').style.display = 'block';
-
             } catch (err) {
                 console.error("Mic Error:", err);
                 document.getElementById('micStatus').textContent = t('micError');
@@ -1635,11 +1576,6 @@
 
             document.getElementById('micToggleBtn').textContent = t('micEnable');
             document.getElementById('micStatus').textContent = "";
-
-            // Hide Single Note controls
-            document.getElementById('singleNoteBtn').style.display = 'none';
-            document.getElementById('dbMeterContainer').style.display = 'none';
-            if (singleNoteMode) toggleSingleNoteMode(); // Reset mode
         }
 
         function toggleMicrophone() {
@@ -1648,66 +1584,26 @@
         }
 
         function analyzeAudio(features) {
-            if (!features || !currentChord || correctChordLocked) return;
+            if (!features || !features.chroma || !currentChord || correctChordLocked) return;
 
-            const rms = features.rms || 0;
-            updateDBMeter(rms);
-
-            // 1. INTENSITY GATING
-            if (rms < RMS_RED_THRESHOLD) return;
-            if (rms < RMS_GREEN_THRESHOLD) return;
-
-            // 2. SINGLE NOTE MODE LOGIC (Exact Pitch Detection)
-            if (singleNoteMode) {
-                // Use Native WebAnalyser Frequency Data for Exact Peak
-                const bufferLength = webAnalyser.frequencyBinCount;
-                const dataArray = new Float32Array(bufferLength);
-                webAnalyser.getFloatFrequencyData(dataArray);
-
-                let maxDb = -Infinity;
-                let maxBin = -1;
-
-                // Scan relevant frequency range (e.g. 60Hz - 2000Hz)
-                // Bin size = 44100 / 8192 = ~5.38 Hz
-                const minBin = Math.floor(60 / 5.38);
-                const maxBinRange = Math.floor(2000 / 5.38);
-
-                for (let i = minBin; i < maxBinRange; i++) {
-                    if (dataArray[i] > maxDb) {
-                        maxDb = dataArray[i];
-                        maxBin = i;
-                    }
-                }
-
-                // If peak is distinguishable (e.g. > -50dB depending on noise floor)
-                // But we already have RMS Gate, so just take the max peak?
-                // Let's rely on the RMS Gate we just passed.
-
-                // Refine frequency with interpolation? Optional.
-                const fundamentalFreq = maxBin * (micContext.sampleRate / webAnalyser.fftSize);
-
-                // Determine MIDI Note
-                // MIDI = 69 + 12 * log2(freq / 440)
-                if (fundamentalFreq > 50) {
-                    const midiNum = Math.round(69 + 12 * Math.log2(fundamentalFreq / 440));
-                    // process specific MIDI note (0-127)
-                    processSingleNote(midiNum);
-                }
+            // RMS check to ignore silence
+            if (features.rms < 0.003) {
                 return;
             }
 
-            // --- STANDARD CHORD MODE (Original Logic) ---
-            if (!features.chroma) return;
             const inputChroma = features.chroma;
+
             // 1. Temporal Smoothing (Exponential Moving Average)
             for (let i = 0; i < 12; i++) {
                 previousChroma[i] = (previousChroma[i] * smoothingAlpha) + (inputChroma[i] * (1 - smoothingAlpha));
             }
 
             // Build Target Chroma Template
+            // Chroma is 12 bins: C, C#, D, D#, E, F, F#, G, G#, A, A#, B
             const targetChroma = new Array(12).fill(0);
-            const essentialNotes = currentChord.essential;
+            const essentialNotes = currentChord.essential; // [0, 4, 7] etc. corresponding to pitch classes
 
+            // Weight essential notes in template
             essentialNotes.forEach(noteIndex => {
                 targetChroma[noteIndex % 12] = 1;
             });
@@ -1715,13 +1611,20 @@
             // Calculate Cosine Similarity on Smoothed Chroma
             const similarity = calculateCosineSimilarity(previousChroma, targetChroma);
 
-            // Dynamic Threshold based on Spectral Centroid
-            let threshold = 0.88;
+            // 2. Dynamic Threshold based on Spectral Centroid
+            // Low centroid means bass-heavy signal. Bass signals often have messy harmonics.
+            // We lower the threshold slightly for bass signals.
+            let threshold = 0.88; // Default strict threshold
+
             if (features.spectralCentroid) {
+                // spectralCentroid is in bins? Or Hz?
+                // Meyda docs: "The center of mass of the power spectrum". 
+                // With 8192 buffer, bin width is ~5-6Hz. 
+                // < 20 bins is < 120Hz approx.
                 if (features.spectralCentroid < 20) {
-                    threshold = 0.75;
+                    threshold = 0.75; // More tolerant for deep bass
                 } else if (features.spectralCentroid < 40) {
-                    threshold = 0.82;
+                    threshold = 0.82; // Mid-bass
                 }
             }
 
@@ -1730,94 +1633,6 @@
                 correctChordLocked = true;
                 triggerSuccess();
             }
-        }
-
-        function processSingleNote(midiNote) {
-            if (correctChordLocked) return;
-
-            const noteClass = midiNote % 12;
-
-            // STRICT FILTERING: Only accept notes that belong to the chord
-            const allAllowedTarget = new Set(currentChord.all.map(n => n % 12));
-            const essentialNotesTarget = new Set(currentChord.essential.map(n => n % 12));
-            const isRootless = document.getElementById('rootless').checked;
-            if (isRootless) {
-                essentialNotesTarget.delete(currentChord.root % 12);
-            }
-
-            if (allAllowedTarget.has(noteClass)) {
-                // Add EXACT MIDI NOTE to accumulated
-                if (!accumulatedNotes.has(midiNote)) {
-                    accumulatedNotes.add(midiNote);
-                    updateVirtualKeyboardHighlights();
-                }
-            }
-            // Wrong notes ignored
-
-            const playedPitches = new Set([...accumulatedNotes].map(m => m % 12));
-            const hasAllEssential = [...essentialNotesTarget].every(note => playedPitches.has(note));
-
-            if (hasAllEssential && playedPitches.size >= essentialNotesTarget.size) {
-                correctChordLocked = true;
-
-                // Save solution for history
-                currentChord.solvedVoicing = Array.from(accumulatedNotes).sort((a, b) => a - b);
-
-                triggerSuccess();
-                resetAccumulatedNotes();
-            }
-        }
-
-        function updateDBMeter(rms) {
-            const bar = document.getElementById('dbMeterBar');
-            if (!bar) return;
-
-            // Scale: 0.1 RMS is max visual
-            let percent = Math.min(100, (rms / 0.1) * 100);
-            bar.style.width = percent + '%';
-
-            if (rms < RMS_RED_THRESHOLD) {
-                bar.style.backgroundColor = '#f44336'; // Red
-            } else if (rms < RMS_GREEN_THRESHOLD) {
-                bar.style.backgroundColor = '#ffeb3b'; // Yellow
-            } else {
-                bar.style.backgroundColor = '#4caf50'; // Green
-            }
-        }
-
-        function toggleSingleNoteMode() {
-            singleNoteMode = !singleNoteMode;
-            const btn = document.getElementById('singleNoteBtn');
-            if (singleNoteMode) {
-                btn.classList.add('active');
-                accumulatedNotes.clear();
-                updateVirtualKeyboardHighlights();
-            } else {
-                btn.classList.remove('active');
-                accumulatedNotes.clear();
-                updateVirtualKeyboardHighlights();
-            }
-        }
-
-        function resetAccumulatedNotes() {
-            accumulatedNotes.clear();
-            updateVirtualKeyboardHighlights();
-            // Also clear history visuals
-            document.querySelectorAll('.key.history').forEach(k => k.classList.remove('history'));
-        }
-
-        function updateVirtualKeyboardHighlights() {
-            // Remove existing accumulated highlights
-            document.querySelectorAll('.key.accumulated').forEach(k => k.classList.remove('accumulated'));
-
-            if (!singleNoteMode) return;
-
-            // Highlight SPECIFIC accumulated notes
-            accumulatedNotes.forEach(midiNote => {
-                if (virtualKeys[midiNote]) {
-                    virtualKeys[midiNote].classList.add('accumulated');
-                }
-            });
         }
 
         function calculateCosineSimilarity(vecA, vecB) {
@@ -1920,85 +1735,6 @@
 
             // Update display
             updateChordDisplay();
-        }
-
-        function getSelectedChordTypes() { return Array.from(document.querySelectorAll('.chordType:checked')).map(cb => cb.value); }
-        function getSelectedAccidentals() { return Array.from(document.querySelectorAll('.accidental:checked')).map(cb => cb.value); }
-        function generateNoteName(index) {
-            const selectedAccidentals = getSelectedAccidentals(); const noteIndex = index % 12;
-            if (selectedAccidentals.length === 1 && selectedAccidentals[0] === 'natural') { return naturalNoteIndexes.includes(noteIndex) ? noteNamesSharp[noteIndex] : null; }
-            const isSharp = noteNamesSharp[noteIndex].length > 1, isFlat = noteNamesFlat[noteIndex].length > 1;
-            const sharpAvailable = selectedAccidentals.includes('sharp'), flatAvailable = selectedAccidentals.includes('flat');
-            if (selectedAccidentals.length === 0) return noteNamesSharp[noteIndex];
-            if (sharpAvailable && isSharp && flatAvailable && isFlat) return Math.random() < 0.5 ? noteNamesSharp[noteIndex] : noteNamesFlat[noteIndex];
-            if (sharpAvailable && isSharp) return noteNamesSharp[noteIndex];
-            if (flatAvailable && isFlat) return noteNamesFlat[noteIndex];
-            if (selectedAccidentals.includes('natural') && naturalNoteIndexes.includes(noteIndex)) return noteNamesSharp[noteIndex];
-            return null;
-        }
-
-        function startTrainer() {
-            if (running) return;
-            const types = getSelectedChordTypes();
-            if (types.length === 0) { document.getElementById('chordDisplay').textContent = t('selectOneType'); document.getElementById('status').textContent = ''; return; }
-            running = true; chordCounter = 0; correctChordLocked = false; requestMIDIAccess(); nextChord();
-        }
-        function resetTrainer() {
-            running = false; clearTimeout(newChordTimeout);
-            document.getElementById('chordDisplay').textContent = ''; document.getElementById('status').textContent = ''; document.getElementById('revealNotes').style.display = 'none';
-            document.getElementById('chordCount').textContent = `${t('chordsGenerated')}: 0`;
-            activeNotes.clear(); fixedNotes.clear(); Object.values(virtualKeys).forEach(key => key.classList.remove('pressed'));
-            currentChord = null; correctChordLocked = false; chordCounter = 0;
-            document.getElementById('selectAllChords').checked = false; document.getElementById('selectAllAccidentals').checked = false; document.getElementById('rootless').checked = false;
-            document.querySelectorAll('.chordType, .accidental').forEach(cb => cb.checked = false);
-            chordHistory = []; historyIndex = -1; updateEnabledChordsReminder();
-            if (typeof resetAccumulatedNotes === 'function') resetAccumulatedNotes();
-        }
-
-        function nextChord() {
-            if (!running) return;
-            clearDisplayedChord();
-            const types = getSelectedChordTypes();
-            if (types.length === 0) { document.getElementById('chordDisplay').textContent = t('selectOneType'); document.getElementById('status').textContent = ''; return; }
-            const allowedRoots = [];
-            for (let i = 0; i < 12; i++) { if (generateNoteName(i) !== null) allowedRoots.push(i); }
-            if (allowedRoots.length === 0) { document.getElementById('chordDisplay').textContent = t('selectAccidental'); document.getElementById('status').textContent = ''; return; }
-            let newChord;
-            if (historyIndex < chordHistory.length - 1) {
-                historyIndex++; newChord = chordHistory[historyIndex];
-            } else {
-                const root = allowedRoots[Math.floor(Math.random() * allowedRoots.length)];
-                const type = types[Math.floor(Math.random() * types.length)];
-                const definition = chordDefinitions[type];
-                const essentialNotes = definition.essential.map(i => (root + i) % 12);
-                const allNotes = [...definition.essential, ...definition.optional].map(i => (root + i) % 12);
-                let chordName = generateNoteName(root) + type;
-                newChord = { root, type, name: chordName, essential: essentialNotes, all: [...new Set(allNotes)] };
-                chordHistory.push(newChord); historyIndex = chordHistory.length - 1;
-            }
-            currentChord = newChord;
-            updateChordDisplay();
-            document.getElementById('status').textContent = ''; document.getElementById('revealNotes').style.display = 'none';
-            chordCounter++; document.getElementById('chordCount').textContent = `${t('chordsGenerated')}: ${chordCounter}`;
-            correctChordLocked = false; activeNotes.clear(); fixedNotes.clear();
-            Object.values(virtualKeys).forEach(key => key.classList.remove('pressed'));
-            if (typeof resetAccumulatedNotes === 'function') resetAccumulatedNotes();
-        }
-
-        function previousChord() {
-            if (historyIndex > 0) {
-                clearDisplayedChord(); historyIndex--;
-                currentChord = chordHistory[historyIndex];
-                updateChordDisplay();
-                document.getElementById('status').textContent = ''; document.getElementById('revealNotes').style.display = 'none';
-                activeNotes.clear(); fixedNotes.clear(); Object.values(virtualKeys).forEach(key => key.classList.remove('pressed'));
-                if (typeof resetAccumulatedNotes === 'function') resetAccumulatedNotes();
-
-                // Restore history if available
-                if (currentChord.solvedVoicing && currentChord.solvedVoicing.length > 0) {
-                    restoreSolvedVoicing(currentChord.solvedVoicing);
-                }
-            } else { document.getElementById('status').textContent = t('noPrevChords'); document.getElementById('status').className = 'status-wrong'; }
         }
 
         window.addEventListener('load', async () => {
@@ -2122,7 +1858,6 @@
             document.getElementById('namingToggleBtn').addEventListener('click', toggleNamingFormat);
             document.getElementById('langToggleBtn').addEventListener('click', toggleLanguage);
             document.getElementById('micToggleBtn').addEventListener('click', toggleMicrophone);
-            document.getElementById('singleNoteBtn').addEventListener('click', toggleSingleNoteMode);
             updateLocalization();
 
             // Check and restore license with self-healing
@@ -2154,17 +1889,7 @@
             setupVirtualKeyboard(); updateEnabledChordsReminder(); document.querySelectorAll('.chordType').forEach(cb => cb.addEventListener('change', updateEnabledChordsReminder));
         });
 
-        function clearDisplayedChord() {
-            if (isChordDisplayed) {
-                // Just clear visuals and audio, checkChord/activeNotes not affected because displayChord doesn't set them anymore
-                Object.values(virtualKeys).forEach(key => {
-                    key.classList.remove('hint');
-                    key.classList.remove('history'); // Clear history too when clearing display
-                });
-                if (sampler && Tone.context.state === 'running') sampler.releaseAll();
-                isChordDisplayed = false;
-            }
-        }
+        function clearDisplayedChord() { if (isChordDisplayed) { fixedNotes.clear(); Object.values(virtualKeys).forEach(key => key.classList.remove('pressed')); if (sampler && Tone.context.state === 'running') sampler.releaseAll(); isChordDisplayed = false; } }
 
         function setupVirtualKeyboard() {
             const keyboardDiv = document.getElementById("keyboard");
@@ -2224,12 +1949,8 @@
 
         function startTrainer() {
             if (running) return;
-            let types = getSelectedChordTypes();
-            // Auto-select basic chords if none selected
-            if (types.length === 0) {
-                document.querySelectorAll('.chordType[value="maj"], .chordType[value="min"]').forEach(cb => cb.checked = true);
-                types = ['maj', 'min'];
-            }
+            const types = getSelectedChordTypes();
+            if (types.length === 0) { document.getElementById('chordDisplay').textContent = t('selectOneType'); document.getElementById('status').textContent = ''; return; }
             running = true; chordCounter = 0; correctChordLocked = false; requestMIDIAccess(); nextChord();
         }
         function resetTrainer() {
@@ -2270,7 +1991,6 @@
             chordCounter++; document.getElementById('chordCount').textContent = `${t('chordsGenerated')}: ${chordCounter}`;
             correctChordLocked = false; activeNotes.clear(); fixedNotes.clear();
             Object.values(virtualKeys).forEach(key => key.classList.remove('pressed'));
-            if (typeof resetAccumulatedNotes === 'function') resetAccumulatedNotes();
         }
 
         function previousChord() {
@@ -2280,23 +2000,7 @@
                 updateChordDisplay();
                 document.getElementById('status').textContent = ''; document.getElementById('revealNotes').style.display = 'none';
                 activeNotes.clear(); fixedNotes.clear(); Object.values(virtualKeys).forEach(key => key.classList.remove('pressed'));
-                if (typeof resetAccumulatedNotes === 'function') resetAccumulatedNotes();
-
-                // Restore history if available
-                if (currentChord.solvedVoicing && currentChord.solvedVoicing.length > 0) {
-                    restoreSolvedVoicing(currentChord.solvedVoicing);
-                }
             } else { document.getElementById('status').textContent = t('noPrevChords'); document.getElementById('status').className = 'status-wrong'; }
-        }
-
-        function restoreSolvedVoicing(voicing) {
-            // Visual only, showing how it was solved
-            voicing.forEach(midiNote => {
-                if (virtualKeys[midiNote]) {
-                    virtualKeys[midiNote].classList.add('history');
-                }
-            });
-            // Optional: Play it? No, user just said "mostrato" (shown).
         }
 
         function revealChord() { if (!currentChord) return; const notes = currentChord.all.map(noteIndex => generateNoteName(noteIndex)).filter(Boolean); let notesText = `${t('notes')} ${notes.join(' ')}`; document.getElementById('revealNotes').textContent = notesText; document.getElementById('revealNotes').style.display = 'block'; }
@@ -2325,25 +2029,11 @@
         }
 
         function displayChord() {
-            if (!currentChord) return;
-            clearDisplayedChord();
-            const isClosePosition = document.getElementById('closePositionToggle').checked;
-            let midiNotes = [];
+            if (!currentChord) return; clearDisplayedChord();
+            const isClosePosition = document.getElementById('closePositionToggle').checked; let midiNotes = [];
             if (isClosePosition) { midiNotes = calculateClosePositionVoicing(currentChord.all, currentChord.root); }
             else { midiNotes = calculateDefaultVoicing(currentChord.all, currentChord.root); }
-
-            midiNotes.forEach(midiNote => {
-                if (virtualKeys[midiNote]) {
-                    // Visual Hint ONLY
-                    virtualKeys[midiNote].classList.add('hint');
-
-                    // Audio Playback (Direct, no state tracking)
-                    if (sampler && Tone.context.state === 'running') {
-                        const noteName = midiToNoteName(midiNote);
-                        sampler.triggerAttackRelease(noteName, "2n");
-                    }
-                }
-            });
+            midiNotes.forEach(midiNote => { if (virtualKeys[midiNote]) { fixedNotes.add(midiNote); playNote(midiNote, 100, false); } });
             isChordDisplayed = true;
         }
         function requestMIDIAccess() { if (navigator.requestMIDIAccess) { navigator.requestMIDIAccess().then(onMIDISuccess, () => { document.getElementById('midiStatus').textContent = t('midiError'); }); } else { document.getElementById('midiStatus').textContent = t('midiUnsupported'); } }
@@ -2356,9 +2046,6 @@
         function checkChord() {
             if (!running || !currentChord || correctChordLocked) return;
             const playedNotesRaw = fixedNotesMode ? fixedNotes : activeNotes;
-            // Need a copy for saving history
-            const playedPitchesRaw = new Set(playedNotesRaw);
-
             if (playedNotesRaw.size === 0) { document.getElementById('status').textContent = ''; return; }
             const playedPitches = new Set([...playedNotesRaw].map(n => n % 12));
             const isRootless = document.getElementById('rootless').checked;
@@ -2369,10 +2056,6 @@
             let isCorrect = hasAllEssential && hasNoWrongNotes;
             if (isCorrect) {
                 correctChordLocked = true;
-
-                // SAVE HISTORY (Voicing)
-                currentChord.solvedVoicing = Array.from(playedPitchesRaw).sort((a, b) => a - b);
-
                 document.getElementById('status').textContent = t('correct'); document.getElementById('status').className = 'status-correct';
                 if (document.getElementById('audioToggle').checked) { new Audio('https://s3.amazonaws.com/duolingo-f/ding.mp3').play(); }
                 if (document.getElementById('automaticAdvanceToggle').checked) { clearTimeout(newChordTimeout); newChordTimeout = setTimeout(() => { nextChord(); }, 1000); }

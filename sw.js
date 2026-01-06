@@ -64,7 +64,7 @@ self.addEventListener('activate', event => {
 // Fetch event - Network First strategy for HTML, Cache First for static assets
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
-  
+
   // Network First for HTML files (always get latest)
   if (event.request.headers.get('accept').includes('text/html') || url.pathname.endsWith('.html')) {
     event.respondWith(
@@ -84,7 +84,7 @@ self.addEventListener('fetch', event => {
     );
     return;
   }
-  
+
   // Cache First for other assets (CSS, JS, images)
   event.respondWith(
     caches.match(event.request)
