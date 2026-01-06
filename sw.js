@@ -2,13 +2,14 @@
 // Auto-update system - updates automatically on new deployments
 
 // IMPORTANT: Change this version number with each deployment to force update
-const VERSION = '1.0.5'; // INCREMENT THIS ON EACH DEPLOY
+const VERSION = '1.0.6'; // INCREMENT THIS ON EACH DEPLOY
 const CACHE_NAME = `chord-trainer-v${VERSION}`;
 
 const urlsToCache = [
   './',
   './index.html',
   './manifest.json',
+  './security.js',
   './icon-72.png',
   './icon-96.png',
   './icon-128.png',

@@ -4,12 +4,21 @@
   "description": "Learn and practice jazz chords with interactive MIDI support and comprehensive chord library",
   "start_url": "./index.html",
   "display": "standalone",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
   "background_color": "#111111",
   "theme_color": "#66ccff",
   "orientation": "any",
   "scope": "./",
   "lang": "en",
-  "categories": ["music", "education", "entertainment"],
+  "categories": [
+    "music",
+    "education",
+    "entertainment"
+  ],
   "icons": [
     {
       "src": "./icon-72.png",
