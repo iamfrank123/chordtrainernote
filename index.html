@@ -6,25 +6,18 @@
     <title>Interactive Jazz Chord Trainer</title>
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <!-- PWA Manifest -->
     <link rel="manifest" href="./manifest.json" />
-    <!-- Theme Colors -->
     <meta name="theme-color" content="#66ccff" />
     <meta name="msapplication-TileColor" content="#66ccff" />
-    <!-- Apple iOS Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Chord Trainer" />
-    <!-- Apple Touch Icons -->
     <link rel="apple-touch-icon" href="./icon-152.png" />
     <link rel="apple-touch-icon" sizes="192x192" href="./icon-192.png" />
     <link rel="apple-touch-icon" sizes="512x512" href="./icon-512.png" />
-    <!-- Favicon -->
     <link rel="icon" type="image/png" sizes="32x32" href="./icon-96.png" />
-    <!-- Description -->
     <meta name="description"
         content="Learn and practice jazz chords with interactive MIDI support and comprehensive chord library" />
-    <!-- Security Module - Must load first -->
     <script src="./security.js" defer></script>
     <style>
         * {
@@ -43,11 +36,9 @@
             margin: 0;
             overflow-x: hidden;
             -webkit-user-select: none;
-            /* Safari */
+            -webkit-user-select: none;
             -ms-user-select: none;
-            /* IE 10 and IE 11 */
             user-select: none;
-            /* Standard syntax */
         }
 
         /* Allow selection in input fields */
@@ -432,7 +423,6 @@
             flex: 1;
         }
 
-        /* PWA Install Button */
         #installButton {
             position: fixed;
             bottom: 20px;
@@ -897,7 +887,6 @@
 </head>
 
 <body>
-    <!-- PWA Install Modal -->
     <div id="installModal">
         <div class="modal-content">
             <h2>📱 Install App</h2>
@@ -910,12 +899,10 @@
         </div>
     </div>
 
-    <!-- PWA Install Button (Fixed) -->
     <button id="installButton" title="Installa come App" data-i18n="installApp">Installa App</button>
 
     <div id="container">
         <h1 data-i18n="appTitle">Interactive Jazz Chord Trainer</h1>
-        <!-- Download App Button below title -->
         <button id="downloadAppBtn" style="display: none;" data-i18n="downloadApp">📱 Download App</button>
         <div id="controls">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
@@ -1265,26 +1252,18 @@
             'sus2': { essential: [0, 2, 7], optional: [] }, 'sus4': { essential: [0, 5, 7], optional: [] }, '7sus4': { essential: [0, 5, 7, 10], optional: [] }, '9sus4': { essential: [0, 5, 10, 2], optional: [7] }, '13sus4': { essential: [0, 5, 10, 9], optional: [7, 2] }, '6': { essential: [0, 4, 7, 9], optional: [] }, 'm6': { essential: [0, 3, 7, 9], optional: [] }, 'add9': { essential: [0, 4, 7, 2], optional: [] }, 'add11': { essential: [0, 4, 7, 5], optional: [] }, 'addSharp11': { essential: [0, 4, 7, 6], optional: [] }
         };
 
-        // --- Enhanced License Key System with Device Fingerprinting and Persistent Storage ---
-
-        // Device Fingerprinting
         async function getDeviceFingerprint() {
             const components = [];
 
-            // Screen resolution
             components.push(screen.width + 'x' + screen.height);
             components.push(screen.colorDepth);
 
-            // Timezone
             components.push(new Date().getTimezoneOffset());
 
-            // Language
             components.push(navigator.language);
 
-            // Platform
             components.push(navigator.platform);
 
-            // Canvas fingerprint
             try {
                 const canvas = document.createElement('canvas');
                 const ctx = canvas.getContext('2d');
@@ -1296,7 +1275,7 @@
                 components.push('canvas-error');
             }
 
-            // WebGL fingerprint
+
             try {
                 const canvas = document.createElement('canvas');
                 const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
@@ -1310,12 +1289,10 @@
                 components.push('webgl-error');
             }
 
-            // Create hash from components
             const fingerprint = components.join('|');
             return quickHash(fingerprint);
         }
 
-        // IndexedDB Helper Functions
         const DB_NAME = 'ChordTrainerDB';
         const STORE_NAME = 'license';
 
@@ -1374,7 +1351,6 @@
         };
         const validKeyHashes = ["d396c36", "3e381968", "649ef7ab", "5058d81", "d36f4a3", "f5d7446", "4d9a65f", "1c35f933", "4679a9b7", "73905355", "5405f502"];
 
-        // Helper functions for Cookies
         function setCookie(name, value, days) {
             let expires = "";
             if (days) {
@@ -1404,13 +1380,11 @@
             });
             document.getElementById('premiumSection').style.display = 'none';
 
-            // Get device fingerprint
             const fingerprint = await getDeviceFingerprint();
 
-            // Redundant storage: Save to localStorage, Cookies, and IndexedDB
             localStorage.setItem('keyboardProUnlocked', 'true');
             localStorage.setItem('deviceFingerprint', fingerprint);
-            setCookie('keyboardProUnlocked', 'true', 3650); // Save for 10 years
+            setCookie('keyboardProUnlocked', 'true', 3650);
             setCookie('deviceFingerprint', fingerprint, 3650);
             await saveToIndexedDB('keyboardProUnlocked', 'true');
             await saveToIndexedDB('deviceFingerprint', fingerprint);
@@ -1453,7 +1427,6 @@
             const storedFingerprintCookie = getCookie('deviceFingerprint');
             const storedFingerprintIDB = await getFromIndexedDB('deviceFingerprint');
 
-            // If any storage has the unlock status OR fingerprint matches
             const isUnlocked = localUnlocked || cookieUnlocked || indexedDBUnlocked;
             const fingerprintMatch = currentFingerprint === storedFingerprintLocal ||
                 currentFingerprint === storedFingerprintCookie ||

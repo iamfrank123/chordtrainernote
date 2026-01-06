@@ -1,7 +1,3 @@
-/**
- * Security Manager - Multi-Layer Protection System
- * Protects premium features from tampering and unauthorized access
- */
 
 class SecurityManager {
     constructor() {
@@ -11,7 +7,6 @@ class SecurityManager {
         this.tamperDetected = false;
         this.monitoringActive = false;
 
-        // Delay initialization to avoid detection
         setTimeout(() => this.initialize(), 1000);
     }
 
@@ -27,12 +22,7 @@ class SecurityManager {
         console.log('%c⚠️ Security System Active', 'color: #f44336; font-size: 16px; font-weight: bold;');
     }
 
-    // ============================================
-    // CODE INTEGRITY PROTECTION
-    // ============================================
-
     initCodeIntegrity() {
-        // Create hash of critical functions to detect modification
         const criticalCode = [
             typeof unlockFeatures,
             typeof checkLicenseKey,
@@ -41,7 +31,6 @@ class SecurityManager {
 
         this.integrityHash = this.quickHash(criticalCode);
 
-        // Periodic integrity check every 10 seconds
         setInterval(() => this.checkCodeIntegrity(), 10000);
     }
 
@@ -68,28 +57,20 @@ class SecurityManager {
         return hash.toString(16);
     }
 
-    // ============================================
-    // DOM INTEGRITY PROTECTION
-    // ============================================
-
     initDOMProtection() {
-        // Monitor all premium features for class tampering
         const observer = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
                 if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
                     const element = mutation.target;
 
-                    // Check if someone is trying to unlock premium features
                     if (element.classList.contains('premium-feature')) {
                         if (!this.isLicenseValid && !element.classList.contains('locked')) {
-                            // Tampering detected: someone removed 'locked' class
                             this.handleTamper('DOM manipulation detected on premium feature');
                             element.classList.add('locked');
                         }
                     }
                 }
 
-                // Detect if security script is being removed
                 if (mutation.type === 'childList' && mutation.removedNodes.length > 0) {
                     mutation.removedNodes.forEach(node => {
                         if (node.tagName === 'SCRIPT' && node.src && node.src.includes('security.js')) {
@@ -100,7 +81,6 @@ class SecurityManager {
             });
         });
 
-        // Observe the entire document
         observer.observe(document.documentElement, {
             attributes: true,
             childList: true,
@@ -108,14 +88,12 @@ class SecurityManager {
             attributeFilter: ['class']
         });
 
-        // Additional protection: freeze premium elements style
         this.protectPremiumElements();
     }
 
     protectPremiumElements() {
         const premiumElements = document.querySelectorAll('.premium-feature');
         premiumElements.forEach(element => {
-            // Make it harder to modify through console
             Object.defineProperty(element, 'className', {
                 set: (value) => {
                     if (!this.isLicenseValid && !value.includes('locked')) {
@@ -129,12 +107,7 @@ class SecurityManager {
         });
     }
 
-    // ============================================
-    // DEVTOOLS DETECTION
-    // ============================================
-
     initDevToolsDetection() {
-        // Method 1: Check window size difference
         const detectDevToolsBySize = () => {
             const threshold = 160;
             const widthDiff = window.outerWidth - window.innerWidth > threshold;
@@ -142,15 +115,13 @@ class SecurityManager {
             return widthDiff || heightDiff;
         };
 
-        // Method 2: Debugger detection
         const detectDebugger = () => {
             const start = performance.now();
-            debugger; // This line will pause if DevTools is open
+            debugger;
             const end = performance.now();
-            return (end - start) > 100; // If paused, time difference is significant
+            return (end - start) > 100;
         };
 
-        // Method 3: Console detection trick
         const detectConsole = () => {
             let devtools = false;
             const element = new Image();
@@ -164,7 +135,6 @@ class SecurityManager {
             return devtools;
         };
 
-        // Check periodically
         setInterval(() => {
             const sizeDetect = detectDevToolsBySize();
 
@@ -176,7 +146,6 @@ class SecurityManager {
             }
         }, 1000);
 
-        // More aggressive check every 5 seconds
         setInterval(() => {
             if (detectDebugger()) {
                 this.handleDevToolsOpen();
@@ -185,18 +154,15 @@ class SecurityManager {
     }
 
     handleDevToolsOpen() {
-        // Show warning but don't block (too aggressive may annoy legitimate users)
         console.clear();
         console.log('%c🚨 WARNING 🚨', 'color: #f44336; font-size: 24px; font-weight: bold;');
         console.log('%cUnauthorized access to developer tools detected.', 'color: #ff9800; font-size: 16px;');
         console.log('%cAttempting to bypass license protection is a violation of terms.', 'color: #ff9800; font-size: 14px;');
 
-        // Optional: Add visual warning overlay
         this.showDevToolsWarning();
     }
 
     showDevToolsWarning() {
-        // Only show once per session
         if (sessionStorage.getItem('devToolsWarningShown')) return;
 
         const overlay = document.createElement('div');
@@ -238,29 +204,21 @@ class SecurityManager {
         document.body.appendChild(overlay);
         sessionStorage.setItem('devToolsWarningShown', 'true');
 
-        // Auto-remove after 10 seconds
         setTimeout(() => {
             if (overlay.parentElement) overlay.remove();
         }, 10000);
     }
 
-    // ============================================
-    // LICENSE MONITORING
-    // ============================================
-
     initLicenseMonitoring() {
-        // Check license status every 5 seconds
         setInterval(() => this.validateLicenseStatus(), 5000);
     }
 
     async validateLicenseStatus() {
-        // Check if license is supposed to be active
         const localUnlocked = localStorage.getItem('keyboardProUnlocked') === 'true';
         const cookieUnlocked = this.getCookie('keyboardProUnlocked') === 'true';
 
         this.isLicenseValid = localUnlocked || cookieUnlocked;
 
-        // If license is invalid, ensure everything is locked
         if (!this.isLicenseValid) {
             const premiumElements = document.querySelectorAll('.premium-feature');
             let tampered = false;
@@ -276,7 +234,6 @@ class SecurityManager {
                 this.handleTamper('License validation failed - features re-locked');
             }
 
-            // Ensure premium section is visible if not licensed
             const premiumSection = document.getElementById('premiumSection');
             if (premiumSection && premiumSection.style.display === 'none') {
                 premiumSection.style.display = 'block';
@@ -295,68 +252,52 @@ class SecurityManager {
         return null;
     }
 
-    // ============================================
-    // KEYBOARD PROTECTION
-    // ============================================
-
     initKeyboardProtection() {
         document.addEventListener('keydown', (e) => {
-            // F12 - Opens DevTools
             if (e.key === 'F12') {
                 e.preventDefault();
                 this.handleBlockedAction('F12 key blocked');
                 return false;
             }
 
-            // Ctrl+Shift+I - Opens DevTools
             if (e.ctrlKey && e.shiftKey && e.key === 'I') {
                 e.preventDefault();
                 this.handleBlockedAction('DevTools shortcut blocked');
                 return false;
             }
 
-            // Ctrl+Shift+J - Opens Console
             if (e.ctrlKey && e.shiftKey && e.key === 'J') {
                 e.preventDefault();
                 this.handleBlockedAction('Console shortcut blocked');
                 return false;
             }
 
-            // Ctrl+Shift+C - Element Inspector
             if (e.ctrlKey && e.shiftKey && e.key === 'C') {
                 e.preventDefault();
                 this.handleBlockedAction('Inspector shortcut blocked');
                 return false;
             }
 
-            // Ctrl+U - View Source
             if (e.ctrlKey && e.key === 'u') {
                 e.preventDefault();
                 this.handleBlockedAction('View Source blocked');
                 return false;
             }
 
-            // Ctrl+S - Save Page
             if (e.ctrlKey && e.key === 's') {
                 e.preventDefault();
                 this.handleBlockedAction('Save Page blocked');
                 return false;
             }
-        }, true); // Use capture phase
+        }, true);
     }
 
     handleBlockedAction(action) {
         console.warn(`🛡️ Security: ${action}`);
-        // Could show a toast notification here if desired
     }
-
-    // ============================================
-    // CONTEXT MENU PROTECTION
-    // ============================================
 
     initContextMenuProtection() {
         document.addEventListener('contextmenu', (e) => {
-            // Allow context menu on input fields for usability
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
                 return true;
             }
@@ -367,17 +308,12 @@ class SecurityManager {
         }, false);
     }
 
-    // ============================================
-    // TAMPER DETECTION HANDLER
-    // ============================================
-
     handleTamper(reason) {
-        if (this.tamperDetected) return; // Prevent spam
+        if (this.tamperDetected) return;
 
         this.tamperDetected = true;
         console.error(`🚨 SECURITY ALERT: ${reason}`);
 
-        // Lock all premium features immediately
         document.querySelectorAll('.premium-feature').forEach(el => {
             el.classList.add('locked');
             const summary = el.querySelector('summary');
@@ -386,19 +322,16 @@ class SecurityManager {
             }
         });
 
-        // Clear any unauthorized unlocks from storage
         if (!this.isLicenseValid) {
             localStorage.removeItem('keyboardProUnlocked');
             this.deleteCookie('keyboardProUnlocked');
         }
 
-        // Show the premium section again
         const premiumSection = document.getElementById('premiumSection');
         if (premiumSection) {
             premiumSection.style.display = 'block';
         }
 
-        // Optional: Show alert to user
         setTimeout(() => {
             alert('⚠️ Security Alert: Unauthorized modification detected. Premium features have been locked. Please use a valid license key.');
             this.tamperDetected = false;
@@ -409,10 +342,6 @@ class SecurityManager {
         document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
     }
 
-    // ============================================
-    // PUBLIC API
-    // ============================================
-
     setLicenseValid(valid) {
         this.isLicenseValid = valid;
     }
@@ -422,12 +351,9 @@ class SecurityManager {
     }
 }
 
-// Initialize Security Manager
-// Use IIFE to make it harder to disable
 (function () {
     'use strict';
 
-    // Wait for DOM to be ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initSecurity);
     } else {
@@ -435,16 +361,13 @@ class SecurityManager {
     }
 
     function initSecurity() {
-        // Create global security instance
         window.securityManager = new SecurityManager();
 
-        // Make it harder to remove
         Object.defineProperty(window, 'securityManager', {
             writable: false,
             configurable: false
         });
 
-        // Prevent unload during session
         let unloadAttempts = 0;
         window.addEventListener('beforeunload', (e) => {
             unloadAttempts++;
@@ -454,14 +377,4 @@ class SecurityManager {
         });
     }
 
-    // Disable console in production (optional - can be annoying for debugging)
-    // Uncomment the following lines to enable this protection:
-    /*
-    if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-        const noop = () => {};
-        ['log', 'warn', 'error', 'info', 'debug', 'trace'].forEach(method => {
-            console[method] = noop;
-        });
-    }
-    */
 })();
