@@ -1,0 +1,2482 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Interactive Jazz Chord Trainer</title>
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="./manifest.json" />
+    <!-- Theme Colors -->
+    <meta name="theme-color" content="#66ccff" />
+    <meta name="msapplication-TileColor" content="#66ccff" />
+    <!-- Apple iOS Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Chord Trainer" />
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="./icon-152.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="./icon-192.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="./icon-512.png" />
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="./icon-96.png" />
+    <!-- Description -->
+    <meta name="description"
+        content="Learn and practice jazz chords with interactive MIDI support and comprehensive chord library" />
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            padding: 0;
+            background: #111;
+            color: #eee;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow-x: hidden;
+            -webkit-user-select: none;
+            /* Safari */
+            -ms-user-select: none;
+            /* IE 10 and IE 11 */
+            user-select: none;
+            /* Standard syntax */
+        }
+
+        /* Allow selection in input fields */
+        input,
+        textarea {
+            -webkit-user-select: auto;
+            user-select: auto;
+        }
+
+        #container {
+            max-width: 800px;
+            width: 100%;
+            padding: 20px;
+            border-radius: 10px;
+            background: #222;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            color: #6cf;
+            margin-bottom: 15px;
+            font-size: 2em;
+            line-height: 1.2;
+        }
+
+        #controls {
+            width: 100%;
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #444;
+            border-radius: 8px;
+        }
+
+        .controls-title {
+            font-size: 1.1em;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .button-group {
+            margin-top: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        button {
+            padding: 12px 24px;
+            min-height: 44px;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: none;
+            background: #444;
+            color: #eee;
+            transition: transform 0.15s, background 0.15s;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        button:active {
+            background: #666;
+            transform: scale(0.98);
+        }
+
+        @media (hover: hover) {
+            button:hover {
+                background: #666;
+                transform: translateY(-2px);
+            }
+        }
+
+        #startButton {
+            background: #4caf50;
+            color: white;
+        }
+
+        #stopButton,
+        #resetButton {
+            background: #f44336;
+            color: white;
+        }
+
+        #nextButton {
+            background: #3498db;
+            color: white;
+        }
+
+        #revealButton,
+        #displayChordButton {
+            background: #2196f3;
+            color: white;
+        }
+
+        #fixedNotesButton.active {
+            background-color: #fdd835;
+            color: #333;
+        }
+
+        #previousButton {
+            background: #fdd835;
+            color: #333;
+        }
+
+        #chordDisplayContainer {
+            margin: 30px 0;
+            width: 100%;
+            position: relative;
+        }
+
+        #chordDisplay {
+            font-size: 3.5em;
+            font-weight: bold;
+            color: #ff6;
+            min-height: 1.2em;
+            word-break: break-word;
+        }
+
+        #namingToggleBtn {
+            position: absolute;
+            top: 5px;
+            right: 10px;
+            padding: 8px 14px;
+            min-height: 44px;
+            font-size: 13px;
+            font-weight: bold;
+            border-radius: 20px;
+            cursor: pointer;
+            border: 2px solid #6cf;
+            background: #333;
+            color: #6cf;
+            transition: all 0.2s ease;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        #namingToggleBtn:active {
+            transform: scale(0.95);
+            background: #6cf;
+            color: #111;
+        }
+
+        @media (hover: hover) {
+            #namingToggleBtn:hover {
+                background: #6cf;
+                color: #111;
+                transform: translateY(-2px);
+                box-shadow: 0 4px 10px rgba(102, 204, 255, 0.4);
+            }
+        }
+
+        #status {
+            font-size: 1.3em;
+            margin-top: 10px;
+            min-height: 1em;
+        }
+
+        .status-correct {
+            color: #4caf50;
+        }
+
+        .status-wrong {
+            color: #f44336;
+        }
+
+        #chordCount {
+            font-size: 1.1em;
+            margin-top: 10px;
+        }
+
+        #enabledChordsReminder {
+            font-size: 1em;
+            margin-top: 5px;
+            color: #ff6;
+            word-break: break-word;
+        }
+
+        #revealNotes {
+            margin-top: 10px;
+            font-size: 1.1em;
+            color: #ff6;
+            display: none;
+            word-break: break-word;
+        }
+
+        #midiStatus {
+            margin-top: 15px;
+            font-size: 0.95em;
+            color: #6cf;
+        }
+
+        .option-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-top: 5px;
+        }
+
+        .option-group label {
+            font-size: 0.9em;
+            cursor: pointer;
+            padding: 2px 5px;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .chord-groups-container {
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        details {
+            background-color: #333;
+            border: 1px solid #444;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            padding: 10px;
+        }
+
+        summary {
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            color: #9cf;
+            padding: 8px;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        summary:active {
+            color: #6cf;
+        }
+
+        @media (hover: hover) {
+            summary:hover {
+                color: #6cf;
+            }
+        }
+
+        .chord-type-list {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            padding: 8px 0 0 10px;
+            gap: 8px;
+        }
+
+        .chord-type-list label {
+            font-size: 0.9em;
+            padding: 8px;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+        }
+
+        #keyboard {
+            display: inline-block;
+            position: relative;
+            margin-top: 20px;
+            transform-origin: center;
+            max-width: 100%;
+            overflow-x: auto;
+        }
+
+        .key {
+            display: inline-block;
+            width: 30px;
+            height: 150px;
+            margin: 0 1px;
+            border: 1px solid black;
+            background: white;
+            position: relative;
+            cursor: pointer;
+            box-sizing: border-box;
+            user-select: none;
+            transition: background-color 0.15s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .key.black {
+            width: 20px;
+            height: 90px;
+            background: black;
+            position: absolute;
+            margin-left: -10px;
+            z-index: 1;
+            top: 0;
+        }
+
+        .key.pressed {
+            background: #ff6 !important;
+        }
+
+        .key.pressed.white {
+            background: #6cf !important;
+        }
+
+        .premium-feature.locked {
+            opacity: 0.6;
+        }
+
+        .premium-feature.locked summary {
+            cursor: not-allowed;
+            color: #aaa;
+        }
+
+        .premium-feature.locked .chord-type-list {
+            display: none;
+        }
+
+        #premiumSection {
+            border: 2px solid #fdd835;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 30px;
+            background-color: #333;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        #premiumSection h2 {
+            margin-top: 0;
+            color: #fdd835;
+            font-size: 1.5em;
+        }
+
+        #premiumSection p {
+            font-size: 1em;
+            line-height: 1.5;
+        }
+
+        #licenseKeyInput {
+            padding: 12px;
+            min-height: 44px;
+            border-radius: 4px;
+            border: 1px solid #555;
+            background: #222;
+            color: #eee;
+            font-size: 16px;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        #unlockButton {
+            background: #fdd835;
+            color: #333;
+            font-weight: bold;
+            width: 100%;
+        }
+
+        #licenseStatus {
+            margin-top: 10px;
+            font-size: 0.95em;
+            min-height: 1.2em;
+        }
+
+        .options-flex-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .options-flex-container .option-group {
+            flex: 1;
+        }
+
+        /* PWA Install Button */
+        #installButton {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #6cf, #2196f3);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            min-height: 44px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(102, 204, 255, 0.5);
+            display: none;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+            z-index: 1001;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        #installButton:active {
+            transform: scale(0.95);
+        }
+
+        @media (hover: hover) {
+            #installButton:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 20px rgba(102, 204, 255, 0.6);
+            }
+        }
+
+        #installButton.show {
+            display: flex;
+        }
+
+        #installButton::before {
+            content: "📱";
+            font-size: 18px;
+        }
+
+        /* Update Toast Notification */
+        #updateToast {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #4caf50, #45a049);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 30px;
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.5);
+            display: none;
+            align-items: center;
+            gap: 12px;
+            z-index: 2001;
+            font-size: 15px;
+            font-weight: 500;
+            animation: slideUpToast 0.3s ease;
+        }
+
+        #updateToast.show {
+            display: flex;
+        }
+
+        @keyframes slideUpToast {
+            from {
+                transform: translateX(-50%) translateY(100px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(-50%) translateY(0);
+                opacity: 1;
+            }
+        }
+
+        #updateToast::before {
+            content: "🔄";
+            font-size: 20px;
+        }
+
+        /* PWA Install Modal */
+        #installModal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            padding: 20px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        #installModal.show {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(50px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-content {
+            background: #222;
+            border: 2px solid #6cf;
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+            animation: slideUp 0.3s ease;
+            box-shadow: 0 10px 40px rgba(102, 204, 255, 0.3);
+        }
+
+        .modal-content h2 {
+            color: #6cf;
+            margin: 0 0 15px 0;
+            font-size: 1.8em;
+        }
+
+        .modal-content p {
+            color: #eee;
+            margin: 0 0 25px 0;
+            font-size: 1.1em;
+            line-height: 1.5;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            flex-direction: column;
+        }
+
+        .modal-buttons button {
+            width: 100%;
+            padding: 14px;
+            font-size: 16px;
+        }
+
+        #modalInstallBtn {
+            background: linear-gradient(135deg, #6cf, #2196f3);
+            color: white;
+        }
+
+        #modalLaterBtn {
+            background: #444;
+            color: #eee;
+        }
+
+        #downloadAppBtn {
+            background: linear-gradient(135deg, #6cf, #2196f3);
+            color: white;
+            margin-top: 10px;
+            width: 100%;
+            max-width: 300px;
+        }
+
+        #premiumSection a {
+            color: white;
+            font-weight: bold;
+            text-decoration: underline;
+        }
+
+        #premiumSection a:hover {
+            color: #6cf;
+        }
+
+        /* Mobile Portrait Optimization */
+        @media (max-width: 768px) {
+            body {
+                padding: 0;
+            }
+
+            #container {
+                padding: 12px;
+                border-radius: 0;
+                min-height: 100vh;
+                justify-content: flex-start;
+            }
+
+            h1 {
+                font-size: 1.4em;
+                margin-bottom: 8px;
+                margin-top: 8px;
+            }
+
+            #controls {
+                padding: 10px;
+                font-size: 0.9em;
+            }
+
+            .controls-title {
+                font-size: 0.95em;
+                margin-bottom: 8px;
+            }
+
+            #chordDisplay {
+                font-size: 2.2em;
+            }
+
+            #chordDisplayContainer {
+                margin: 15px 0;
+                position: relative;
+            }
+
+            #namingToggleBtn {
+                position: absolute;
+                top: 0;
+                right: 0;
+                margin: 0;
+                width: auto !important;
+                min-width: unset !important;
+                flex: none !important;
+                font-size: 11px;
+                padding: 4px 8px;
+            }
+
+            #langToggleBtn {
+                width: auto !important;
+                min-width: unset !important;
+                flex: none !important;
+                padding: 4px 10px;
+            }
+
+            .button-group {
+                gap: 6px;
+                margin-top: 15px;
+            }
+
+            button {
+                padding: 10px 14px;
+                font-size: 13px;
+                flex: 1 1 calc(50% - 6px);
+                min-width: calc(50% - 6px);
+            }
+
+            /* Compact 2-column layout for options */
+            .options-flex-container {
+                gap: 12px;
+            }
+
+            .option-group {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 6px 10px;
+                margin-top: 8px;
+            }
+
+            .option-group .controls-title {
+                grid-column: 1 / -1;
+            }
+
+            .option-group label {
+                font-size: 0.85em;
+                padding: 4px;
+                white-space: nowrap;
+            }
+
+            /* Virtual Keyboard - Properly sized for portrait */
+            #keyboard {
+                margin: 15px auto 10px auto;
+                overflow-x: auto;
+                overflow-y: visible;
+            }
+
+            .key.white {
+                width: 16px;
+                height: 80px;
+                margin: 0 0.5px;
+            }
+
+            .key.black {
+                width: 11px;
+                height: 48px;
+                margin-left: -5.5px;
+            }
+
+            #installButton {
+                bottom: 10px;
+                right: 10px;
+                left: 10px;
+                justify-content: center;
+                border-radius: 12px;
+            }
+
+            #premiumSection {
+                padding: 12px;
+            }
+
+            #premiumSection h2 {
+                font-size: 1.3em;
+            }
+
+            #licenseKeyInput {
+                margin-right: 0;
+                margin-bottom: 10px;
+            }
+
+            .chord-type-list {
+                padding-left: 5px;
+                gap: 6px;
+            }
+
+            .chord-type-list label {
+                font-size: 0.8em;
+                padding: 6px;
+                min-height: 38px;
+            }
+
+            details {
+                padding: 6px;
+                margin-bottom: 6px;
+            }
+
+            summary {
+                font-size: 0.9em;
+                padding: 6px;
+            }
+
+            #status {
+                font-size: 1.1em;
+            }
+
+            #chordCount,
+            #enabledChordsReminder,
+            #revealNotes {
+                font-size: 0.85em;
+            }
+
+            #midiStatus {
+                font-size: 0.85em;
+            }
+
+            .modal-content {
+                padding: 20px 15px;
+            }
+
+            .modal-content h2 {
+                font-size: 1.4em;
+            }
+
+            .modal-content p {
+                font-size: 1em;
+            }
+        }
+
+        /* Mobile Landscape Optimization */
+        @media (max-height: 500px) and (orientation: landscape) {
+            #container {
+                padding: 10px;
+            }
+
+            h1 {
+                font-size: 1.3em;
+                margin: 5px 0;
+            }
+
+            #chordDisplayContainer {
+                margin: 15px 0;
+            }
+
+            #chordDisplay {
+                font-size: 2em;
+                min-height: 0.8em;
+            }
+
+            #controls {
+                padding: 10px;
+                margin-bottom: 10px;
+            }
+
+            .button-group {
+                margin-top: 10px;
+                gap: 5px;
+            }
+
+            button {
+                padding: 8px 12px;
+                font-size: 13px;
+                min-height: 38px;
+            }
+
+            #keyboard {
+                transform: scale(0.6);
+                margin: 5px 0;
+            }
+
+            details {
+                padding: 5px;
+            }
+
+            summary {
+                font-size: 0.95em;
+                min-height: 38px;
+            }
+
+            .chord-type-list label {
+                min-height: 38px;
+                padding: 5px;
+            }
+
+            #status {
+                font-size: 1.1em;
+            }
+        }
+
+        /* Tablet Portrait */
+        @media (min-width: 769px) and (max-width: 1024px) {
+            #container {
+                padding: 25px;
+            }
+
+            .options-flex-container {
+                flex-direction: row;
+            }
+
+            #keyboard {
+                transform: scale(0.9);
+            }
+        }
+
+        /* Desktop */
+        @media (min-width: 1025px) {
+            .options-flex-container {
+                flex-direction: row;
+            }
+
+            #licenseKeyInput {
+                width: auto;
+                margin-right: 10px;
+                margin-bottom: 0;
+            }
+
+            #unlockButton {
+                width: auto;
+            }
+        }
+
+        /* Mic Status Indicators */
+        #micStatus.small {
+            font-size: 0.8em;
+            margin-top: 5px;
+        }
+
+        .mic-loading {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border: 2px solid rgba(255, 255, 255, .3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-left: 5px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Single Note Mode Styles */
+        #singleNoteBtn.active {
+            background-color: #ff9800;
+            color: #111;
+        }
+
+        .key.accumulated {
+            background-color: #4caf50 !important;
+            /* Green highlight for accumulated notes */
+        }
+
+        .key.black.accumulated {
+            background-color: #388e3c !important;
+            /* Darker green for black keys */
+            border-bottom: 1px solid #2e7d32;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- PWA Install Modal -->
+    <div id="installModal">
+        <div class="modal-content">
+            <h2>📱 Install App</h2>
+            <p data-i18n="installModalDesc">Download our app for a better experience! Access offline, faster loading,
+                and full-screen mode.</p>
+            <div class="modal-buttons">
+                <button id="modalInstallBtn" data-i18n="installNow">Install Now</button>
+                <button id="modalLaterBtn" data-i18n="maybeLater">Maybe Later</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PWA Install Button (Fixed) -->
+    <button id="installButton" title="Installa come App" data-i18n="installApp">Installa App</button>
+
+    <div id="container">
+        <h1 data-i18n="appTitle">Interactive Jazz Chord Trainer</h1>
+        <!-- Download App Button below title -->
+        <button id="downloadAppBtn" style="display: none;" data-i18n="downloadApp">📱 Download App</button>
+        <div id="controls">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                <strong class="controls-title" data-i18n="selectChordTypes" style="margin-bottom: 0;">Select chord
+                    types:</strong>
+                <button id="langToggleBtn" style="
+                    padding: 4px 10px;
+                    font-size: 12px;
+                    font-weight: bold;
+                    border-radius: 15px;
+                    cursor: pointer;
+                    border: 2px solid #4caf50;
+                    background: #333;
+                    color: #4caf50;
+                    transition: all 0.2s ease;
+                    user-select: none;
+                    -webkit-tap-highlight-color: transparent;">EN</button>
+            </div>
+            <label style="display:block; margin-top:10px;"><input type="checkbox" id="selectAllChords"> <span
+                    data-i18n="enableAll">Enable all</span></label>
+            <div class="chord-groups-container">
+                <details>
+                    <summary data-i18n="triads">Triads</summary>
+                    <div class="chord-type-list">
+                        <label><input type="checkbox" class="chordType" value="maj"> <span data-i18n="chordMaj">Major
+                                (maj)</span></label>
+                        <label><input type="checkbox" class="chordType" value="min"> <span data-i18n="chordMin">Minor
+                                (min)</span></label>
+                        <label><input type="checkbox" class="chordType" value="dim"> <span
+                                data-i18n="chordDim">Diminished</span></label>
+                        <label><input type="checkbox" class="chordType" value="aug"> <span
+                                data-i18n="chordAug">Augmented</span></label>
+                    </div>
+                </details>
+                <details class="premium-feature locked">
+                    <summary data-i18n="sevenths">Sevenths 🔒</summary>
+                    <div class="chord-type-list">
+                        <label><input type="checkbox" class="chordType" value="maj7"> Maj7</label>
+                        <label><input type="checkbox" class="chordType" value="7"> <span data-i18n="chordDom7">Dominant
+                                7</span></label>
+                        <label><input type="checkbox" class="chordType" value="m7"> Min7</label>
+                        <label><input type="checkbox" class="chordType" value="mMaj7"> mMaj7</label>
+                        <label><input type="checkbox" class="chordType" value="m7b5"> m7b5</label>
+                        <label><input type="checkbox" class="chordType" value="7b5"> 7♭5</label>
+                        <label><input type="checkbox" class="chordType" value="7#5"> 7♯5</label>
+                    </div>
+                </details>
+                <details class="premium-feature locked">
+                    <summary data-i18n="ninths">Ninths 🔒</summary>
+                    <div class="chord-type-list">
+                        <label><input type="checkbox" class="chordType" value="Maj9"> Maj9</label>
+                        <label><input type="checkbox" class="chordType" value="9"> <span data-i18n="chordDom9">Dominant
+                                9</span></label>
+                        <label><input type="checkbox" class="chordType" value="m9"> Minor 9</label>
+                        <label><input type="checkbox" class="chordType" value="7b9"> 7♭9</label>
+                        <label><input type="checkbox" class="chordType" value="7#9"> 7♯9</label>
+                    </div>
+                </details>
+                <details class="premium-feature locked">
+                    <summary data-i18n="elevenths">11th, 13th & Altered 🔒</summary>
+                    <div class="chord-type-list">
+                        <label><input type="checkbox" class="chordType" value="11"> 11</label>
+                        <label><input type="checkbox" class="chordType" value="m11"> m11</label>
+                        <label><input type="checkbox" class="chordType" value="7#11"> 7♯11</label>
+                        <label><input type="checkbox" class="chordType" value="13"> 13</label>
+                        <label><input type="checkbox" class="chordType" value="m13"> m13</label>
+                        <label><input type="checkbox" class="chordType" value="7b13"> 7♭13</label>
+                        <label><input type="checkbox" class="chordType" value="7alt"> 7alt</label>
+                    </div>
+                </details>
+                <details class="premium-feature locked">
+                    <summary data-i18n="suspended">Suspended & Other 🔒</summary>
+                    <div class="chord-type-list">
+                        <label><input type="checkbox" class="chordType" value="sus2"> Sus2</label>
+                        <label><input type="checkbox" class="chordType" value="sus4"> Sus4</label>
+                        <label><input type="checkbox" class="chordType" value="7sus4"> 7sus4</label>
+                        <label><input type="checkbox" class="chordType" value="9sus4"> 9sus4</label>
+                        <label><input type="checkbox" class="chordType" value="13sus4"> 13sus4</label>
+                        <label><input type="checkbox" class="chordType" value="6"> Maj6</label>
+                        <label><input type="checkbox" class="chordType" value="m6"> Min6</label>
+                        <label><input type="checkbox" class="chordType" value="add9"> Add9</label>
+                        <label><input type="checkbox" class="chordType" value="add11"> Add11</label>
+                        <label><input type="checkbox" class="chordType" value="addSharp11"> Add♯11</label>
+                    </div>
+                </details>
+            </div>
+
+            <div class="options-flex-container">
+                <div class="option-group">
+                    <strong class="controls-title" data-i18n="additionalOptions">Additional Options:</strong>
+                    <label><input type="checkbox" id="rootless"> <span data-i18n="rootless">Allow rootless
+                            voicings</span></label>
+                    <label><input type="checkbox" id="closePositionToggle"> <span data-i18n="closePosition">Close
+                            Position</span></label>
+                </div>
+                <div class="option-group">
+                    <strong class="controls-title" data-i18n="preferences">Preferences:</strong>
+                    <label><input type="checkbox" id="selectAllAccidentals"> <span data-i18n="enableAllPref">Enable all
+                            preferences</span></label>
+                    <label><input type="checkbox" class="accidental" value="sharp"> <span data-i18n="sharps">Sharps
+                            (#)</span></label>
+                    <label><input type="checkbox" class="accidental" value="flat"> <span data-i18n="flats">Flats
+                            (b)</span></label>
+                    <label><input type="checkbox" class="accidental" value="natural"> <span
+                            data-i18n="naturals">Naturals</span></label>
+                </div>
+            </div>
+        </div>
+
+        <button id="startButton"
+            style="margin: 10px 0; width: 100%; max-width: 400px; background: #4caf50; font-size: 1.2em; font-weight: bold; padding: 15px;"
+            data-i18n="start">Start</button>
+        <div id="chordDisplayContainer">
+            <button id="namingToggleBtn" title="Toggle between International and Latin naming">C/DO</button>
+            <div id="chordDisplay"></div>
+            <div id="status"></div>
+            <div id="revealNotes"></div>
+        </div>
+
+        <div id="keyboard"></div>
+
+
+
+        <div style="margin-top: 15px;">
+            <label><input type="checkbox" id="audioToggle"> <span data-i18n="activateAudio">Activate
+                    Audio</span></label>
+            <label><input type="checkbox" id="automaticAdvanceToggle" checked> <span data-i18n="autoAdvance">Automatic
+                    Advance</span></label>
+        </div>
+        <div class="button-group">
+            <!-- Start button moved above -->
+            <button id="nextButton" data-i18n="nextChord">Next Chord</button>
+            <button id="previousButton" data-i18n="prevChord">Previous Chord</button>
+            <button id="revealButton" data-i18n="revealNotes">Reveal Chord Notes</button>
+            <button id="displayChordButton" data-i18n="displayChord">Display Chord</button>
+            <button id="fixedNotesButton" data-i18n="fixedNotes">Fixed Notes</button>
+            <button id="resetButton" data-i18n="reset">Reset</button>
+        </div>
+
+        <div id="premiumSection">
+            <h2 data-i18n="unlockTitle">Unlock Full Version</h2>
+            <p data-i18n="unlockDesc">To access all advanced chords (Sevenths, 9ths, 11ths, 13ths, Altered, and more),
+                please purchase a license key for $7.99.</p>
+            <p><a href="https://payhip.com/b/JrSdU" target="_blank" data-i18n="purchaseLink">Click here to purchase your
+                    key.</a></p>
+            <div>
+                <input type="text" id="licenseKeyInput" placeholder="Enter License Key">
+                <button id="unlockButton" data-i18n="unlockBtn">Unlock</button>
+            </div>
+            <div id="licenseStatus"></div>
+        </div>
+        <div id="chordCount">Chords generated: 0</div>
+        <div id="enabledChordsReminder">Enabled chord types: </div>
+        <div id="midiStatus">MIDI not connected</div>
+        <div id="midiStatus">MIDI not connected</div>
+        <div style="display: flex; gap: 10px; align-items: center; margin-top: 5px;">
+            <button id="micToggleBtn" style="padding: 5px 10px; font-size: 0.9em; cursor: pointer; flex: 1;"
+                data-i18n="micEnable">Enable Mic 🎤</button>
+            <button id="singleNoteBtn"
+                style="padding: 5px 10px; font-size: 0.9em; cursor: pointer; flex: 1; display: none;"
+                data-i18n="singleNoteMode">Note Singole 🎵</button>
+        </div>
+        <div id="micStatus" style="font-size: 0.8em; margin-top: 2px;"></div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <script src="https://unpkg.com/meyda/dist/web/meyda.min.js"></script>
+    <script>
+        let midiAccess, currentChord, activeNotes = new Set(), running = false;
+        let chordCounter = 0, newChordTimeout, correctChordLocked = false;
+        let sampler;
+        let fixedNotesMode = false;
+        let fixedNotes = new Set();
+        let virtualKeys = {};
+        let chordHistory = [];
+        let historyIndex = -1;
+        let isChordDisplayed = false;
+
+        // Single Note Mode State
+        let singleNoteMode = false;
+        let accumulatedNotes = new Set();
+
+
+
+        const translations = {
+            en: {
+                appTitle: "Interactive Jazz Chord Trainer",
+                downloadApp: "📱 Download App",
+                selectChordTypes: "Select chord types:",
+                enableAll: "Enable all",
+                triads: "Triads",
+                sevenths: "Sevenths",
+                ninths: "Ninths",
+                elevenths: "11th, 13th & Altered",
+                suspended: "Suspended & Other",
+                additionalOptions: "Additional Options:",
+                rootless: "Allow rootless voicings",
+                closePosition: "Close Position",
+                preferences: "Preferences:",
+                enableAllPref: "Enable all preferences",
+                sharps: "Sharps (#)",
+                flats: "Flats (b)",
+                naturals: "Naturals",
+                activateAudio: "Activate Audio",
+                autoAdvance: "Automatic Advance",
+                start: "Start",
+                nextChord: "Next Chord",
+                prevChord: "Previous Chord",
+                revealNotes: "Reveal Chord Notes",
+                displayChord: "Display Chord",
+                fixedNotes: "Fixed Notes",
+                reset: "Reset",
+                unlockTitle: "Unlock Full Version",
+                unlockDesc: "To access all advanced chords (Sevenths, 9ths, 11ths, 13ths, Altered, and more), please purchase a license key for $7.99.",
+                purchaseLink: "Click here to purchase your key.",
+                unlockBtn: "Unlock",
+                installModalDesc: "Download our app for a better experience! Access offline, faster loading, and full-screen mode.",
+                installNow: "Install Now",
+                maybeLater: "Maybe Later",
+                installApp: "Install App",
+                selectOneType: "Please select at least one chord type.",
+                selectAccidental: "Please select a valid accidental preference.",
+                chordsGenerated: "Chords generated",
+                enabledTypes: "Enabled chord types",
+                midiConnected: "MIDI connected!",
+                midiNotConnected: "MIDI not connected",
+                midiError: "Could not access MIDI devices.",
+                midiUnsupported: "Web MIDI API not supported by this browser.",
+                correct: "✔ Correct",
+                incorrect: "✘ Incorrect",
+                noPrevChords: "No previous chords.",
+                notes: "Notes:",
+                congrats: "Congratulations, you unlocked the full version",
+                invalidKey: "Invalid license key. Please try again.",
+                congratsAlert: "🎉 Congratulations! You now have the full version unlocked!",
+                chordMaj: "Major (maj)",
+                chordMin: "Minor (min)",
+                chordDim: "Diminished",
+                chordAug: "Augmented",
+                chordDom7: "Dominant 7",
+                chordDom7: "Dominant 7",
+                chordDom9: "Dominant 9",
+                micEnable: "Enable Mic 🎤",
+                micDisable: "Disable Mic 🎤",
+                micActive: "Microphone Active",
+                micError: "Microphone Error",
+                micMidiConflict: "Mic disabled (MIDI connected)",
+                micQualityExcellent: "Microphone Quality: Excellent",
+                micQualityGood: "Microphone Quality: Good",
+                micQualitySufficient: "Microphone Quality: Sufficient",
+                micQualityPoor: "Microphone Quality: Poor",
+                micAdviceTooWeak: "Signal too weak. Move closer to the piano.",
+                micAdviceGetCloser: "Try moving closer for better accuracy.",
+                singleNoteMode: "Single Note Mode"
+            },
+            it: {
+                appTitle: "Trainer Accordi Jazz Interattivo",
+                downloadApp: "📱 Scarica App",
+                selectChordTypes: "Seleziona tipi di accordo:",
+                enableAll: "Abilita tutti",
+                triads: "Triadi",
+                sevenths: "Settime",
+                ninths: "None",
+                elevenths: "11esime, 13esime & Alterate",
+                suspended: "Sospesi & Altro",
+                additionalOptions: "Opzioni Aggiuntive:",
+                rootless: "Accordi senza tonica",
+                closePosition: "Posizione Stretta",
+                preferences: "Preferenze:",
+                enableAllPref: "Abilita tutto",
+                sharps: "Diesis (#)",
+                flats: "Bemolle (b)",
+                naturals: "Naturali",
+                activateAudio: "Audio Attivo",
+                autoAdvance: "Avanzamento Auto",
+                start: "Start",
+                nextChord: "Prossimo Accordo",
+                prevChord: "Accordo Prec.",
+                revealNotes: "Rivela Note",
+                displayChord: "Mostra Accordo",
+                fixedNotes: "Note Fisse",
+                reset: "Reset",
+                unlockTitle: "Sblocca Versione Completa",
+                unlockDesc: "Per accedere a tutti gli accordi avanzati (Settime, None, 11esime, 13esime, Alterati, ecc.), acquista una chiave di licenza per $7.99.",
+                purchaseLink: "Clicca qui per acquistare la chiave.",
+                unlockBtn: "Sblocca",
+                installModalDesc: "Scarica la nostra app per un'esperienza migliore! Accesso offline, caricamento veloce e schermo intero.",
+                installNow: "Installa Ora",
+                maybeLater: "Forse più tardi",
+                installApp: "Installa App",
+                selectOneType: "Seleziona almeno un tipo di accordo.",
+                selectAccidental: "Seleziona una preferenza valida per le alterazioni.",
+                chordsGenerated: "Accordi generati",
+                enabledTypes: "Tipi abilitati",
+                midiConnected: "MIDI connesso!",
+                midiNotConnected: "MIDI non connesso",
+                midiError: "Impossibile accedere ai dispositivi MIDI.",
+                midiUnsupported: "Web MIDI API non supportata da questo browser.",
+                correct: "✔ Corretto",
+                incorrect: "✘ Errato",
+                noPrevChords: "Nessun accordo precedente.",
+                notes: "Note:",
+                congrats: "Congratulazioni, hai sbloccato la versione completa",
+                invalidKey: "Chiave non valida. Riprova.",
+                congratsAlert: "🎉 Congratulazioni! Hai sbloccato la versione completa!",
+                chordMaj: "Maggiore (maj)",
+                chordMin: "Minore (min)",
+                chordDim: "diminuito",
+                chordAug: "aumentato",
+                chordDom7: "dominante7",
+                chordDom7: "dominante7",
+                chordDom9: "dominante9",
+                micEnable: "Abilita Microfono 🎤",
+                micDisable: "Disabilita Microfono 🎤",
+                micActive: "Microfono Attivo",
+                micError: "Errore Microfono",
+                micMidiConflict: "Microfono disabilitato (MIDI connesso)",
+                micQualityExcellent: "Qualità Microfono: Eccellente",
+                micQualityGood: "Qualità Microfono: Buona",
+                micQualitySufficient: "Qualità Microfono: Sufficiente",
+                micQualityPoor: "Qualità Microfono: Scarsa",
+                micAdviceTooWeak: "Segnale troppo debole. Avvicinati al pianoforte.",
+                micAdviceGetCloser: "Prova ad avvicinarti per una maggiore precisione.",
+                singleNoteMode: "Modalità Note Singole"
+            }
+        };
+
+        let currentLang = localStorage.getItem('lang') || 'en';
+
+        function t(key) {
+            return translations[currentLang][key] || key;
+        }
+
+        function updateLocalization() {
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (key) el.textContent = t(key);
+            });
+            // Update lock texts specifically if needed
+            document.querySelectorAll('.premium-feature.locked summary').forEach(el => {
+                // Re-append lock icon if missing? The textContent replace overwrites children? No, summary usually just text.
+                // Actually summary usually has text + lock.
+                // My generic replacement replaces the whole text. I should append lock if locked.
+                if (!el.textContent.includes('🔒')) el.textContent += ' 🔒';
+            });
+            document.getElementById('langToggleBtn').textContent = currentLang.toUpperCase();
+
+            // Update dynamic texts
+            updateEnabledChordsReminder();
+            document.getElementById('chordCount').textContent = `${t('chordsGenerated')}: ${chordCounter}`;
+            if (midiAccess) document.getElementById('midiStatus').textContent = t('midiConnected');
+            else document.getElementById('midiStatus').textContent = t('midiNotConnected');
+        }
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'en' ? 'it' : 'en';
+            localStorage.setItem('lang', currentLang);
+            updateLocalization();
+        }
+
+        const chordDefinitions = {
+            'maj': { essential: [0, 4, 7], optional: [] }, 'min': { essential: [0, 3, 7], optional: [] }, 'dim': { essential: [0, 3, 6], optional: [] }, 'aug': { essential: [0, 4, 8], optional: [] },
+            'maj7': { essential: [0, 4, 7, 11], optional: [] }, '7': { essential: [0, 4, 7, 10], optional: [] }, 'm7': { essential: [0, 3, 7, 10], optional: [] }, 'mMaj7': { essential: [0, 3, 7, 11], optional: [] }, 'm7b5': { essential: [0, 3, 6, 10], optional: [] }, '7b5': { essential: [0, 4, 6, 10], optional: [] }, '7#5': { essential: [0, 4, 8, 10], optional: [] },
+            'Maj9': { essential: [0, 4, 11, 2], optional: [7] }, '9': { essential: [0, 4, 10, 2], optional: [7] }, 'm9': { essential: [0, 3, 10, 2], optional: [7] }, '7b9': { essential: [0, 4, 10, 1], optional: [7] }, '7#9': { essential: [0, 4, 10, 3], optional: [7] },
+            '11': { essential: [0, 10, 5], optional: [2, 7] }, 'm11': { essential: [0, 3, 10, 5], optional: [7, 2] }, '7#11': { essential: [0, 4, 10, 6], optional: [7, 2] }, '13': { essential: [0, 4, 10, 9], optional: [7, 2] }, 'm13': { essential: [0, 3, 10, 9], optional: [7, 2, 5] }, '7b13': { essential: [0, 4, 10, 8], optional: [7, 2] }, '7alt': { essential: [0, 4, 10], optional: [1, 3, 6, 8] },
+            'sus2': { essential: [0, 2, 7], optional: [] }, 'sus4': { essential: [0, 5, 7], optional: [] }, '7sus4': { essential: [0, 5, 7, 10], optional: [] }, '9sus4': { essential: [0, 5, 10, 2], optional: [7] }, '13sus4': { essential: [0, 5, 10, 9], optional: [7, 2] }, '6': { essential: [0, 4, 7, 9], optional: [] }, 'm6': { essential: [0, 3, 7, 9], optional: [] }, 'add9': { essential: [0, 4, 7, 2], optional: [] }, 'add11': { essential: [0, 4, 7, 5], optional: [] }, 'addSharp11': { essential: [0, 4, 7, 6], optional: [] }
+        };
+
+        // --- Enhanced License Key System with Device Fingerprinting and Persistent Storage ---
+
+        // Device Fingerprinting
+        async function getDeviceFingerprint() {
+            const components = [];
+
+            // Screen resolution
+            components.push(screen.width + 'x' + screen.height);
+            components.push(screen.colorDepth);
+
+            // Timezone
+            components.push(new Date().getTimezoneOffset());
+
+            // Language
+            components.push(navigator.language);
+
+            // Platform
+            components.push(navigator.platform);
+
+            // Canvas fingerprint
+            try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                ctx.textBaseline = 'top';
+                ctx.font = '14px Arial';
+                ctx.fillText('ChordTrainer', 2, 2);
+                components.push(canvas.toDataURL());
+            } catch (e) {
+                components.push('canvas-error');
+            }
+
+            // WebGL fingerprint
+            try {
+                const canvas = document.createElement('canvas');
+                const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                if (gl) {
+                    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                    if (debugInfo) {
+                        components.push(gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL));
+                    }
+                }
+            } catch (e) {
+                components.push('webgl-error');
+            }
+
+            // Create hash from components
+            const fingerprint = components.join('|');
+            return quickHash(fingerprint);
+        }
+
+        // IndexedDB Helper Functions
+        const DB_NAME = 'ChordTrainerDB';
+        const STORE_NAME = 'license';
+
+        function openDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, 1);
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => resolve(request.result);
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        db.createObjectStore(STORE_NAME);
+                    }
+                };
+            });
+        }
+
+        async function saveToIndexedDB(key, value) {
+            try {
+                const db = await openDB();
+                return new Promise((resolve, reject) => {
+                    const transaction = db.transaction([STORE_NAME], 'readwrite');
+                    const store = transaction.objectStore(STORE_NAME);
+                    const request = store.put(value, key);
+                    request.onsuccess = () => resolve();
+                    request.onerror = () => reject(request.error);
+                });
+            } catch (e) {
+                console.error('IndexedDB save error:', e);
+            }
+        }
+
+        async function getFromIndexedDB(key) {
+            try {
+                const db = await openDB();
+                return new Promise((resolve, reject) => {
+                    const transaction = db.transaction([STORE_NAME], 'readonly');
+                    const store = transaction.objectStore(STORE_NAME);
+                    const request = store.get(key);
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            } catch (e) {
+                console.error('IndexedDB get error:', e);
+                return null;
+            }
+        }
+
+        const quickHash = str => {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = (hash << 5) - hash + str.charCodeAt(i);
+                hash |= 0;
+            }
+            return hash.toString(16);
+        };
+        const validKeyHashes = ["d396c36", "3e381968", "649ef7ab", "5058d81", "d36f4a3", "f5d7446", "4d9a65f", "1c35f933", "4679a9b7", "73905355", "5405f502"];
+
+        // Helper functions for Cookies
+        function setCookie(name, value, days) {
+            let expires = "";
+            if (days) {
+                const date = new Date();
+                date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+                expires = "; expires=" + date.toUTCString();
+            }
+            document.cookie = name + "=" + (value || "") + expires + "; path=/; SameSite=Strict";
+        }
+
+        function getCookie(name) {
+            const nameEQ = name + "=";
+            const ca = document.cookie.split(';');
+            for (let i = 0; i < ca.length; i++) {
+                let c = ca[i];
+                while (c.charAt(0) == ' ') c = c.substring(1, c.length);
+                if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
+            }
+            return null;
+        }
+
+        async function unlockFeatures() {
+            document.querySelectorAll('.premium-feature').forEach(el => {
+                el.classList.remove('locked');
+                const summary = el.querySelector('summary');
+                if (summary) summary.textContent = summary.textContent.replace(' 🔒', '');
+            });
+            document.getElementById('premiumSection').style.display = 'none';
+
+            // Get device fingerprint
+            const fingerprint = await getDeviceFingerprint();
+
+            // Redundant storage: Save to localStorage, Cookies, and IndexedDB
+            localStorage.setItem('keyboardProUnlocked', 'true');
+            localStorage.setItem('deviceFingerprint', fingerprint);
+            setCookie('keyboardProUnlocked', 'true', 3650); // Save for 10 years
+            setCookie('deviceFingerprint', fingerprint, 3650);
+            await saveToIndexedDB('keyboardProUnlocked', 'true');
+            await saveToIndexedDB('deviceFingerprint', fingerprint);
+        }
+
+        function lockFeatures() {
+            document.querySelectorAll('.premium-feature').forEach(el => el.classList.add('locked'));
+        }
+
+        async function checkLicenseKey() {
+            const input = document.getElementById('licenseKeyInput');
+            const status = document.getElementById('licenseStatus');
+            const key = input.value.trim().toUpperCase();
+            if (validKeyHashes.includes(quickHash(key))) {
+                await unlockFeatures();
+                status.textContent = t('congrats');
+                status.style.color = '#4caf50';
+                setTimeout(() => { status.textContent = ''; }, 3000);
+                alert(t('congratsAlert'));
+            } else {
+                status.textContent = t('invalidKey');
+                status.style.color = '#f44336';
+            }
+        }
+
+        // Self-healing license check
+        async function checkAndRestoreLicense() {
+            const localUnlocked = localStorage.getItem('keyboardProUnlocked') === 'true';
+            const cookieUnlocked = getCookie('keyboardProUnlocked') === 'true';
+            const indexedDBUnlocked = await getFromIndexedDB('keyboardProUnlocked') === 'true';
+
+            // Check device fingerprint match
+            const currentFingerprint = await getDeviceFingerprint();
+            const storedFingerprintLocal = localStorage.getItem('deviceFingerprint');
+            const storedFingerprintCookie = getCookie('deviceFingerprint');
+            const storedFingerprintIDB = await getFromIndexedDB('deviceFingerprint');
+
+            // If any storage has the unlock status OR fingerprint matches
+            const isUnlocked = localUnlocked || cookieUnlocked || indexedDBUnlocked;
+            const fingerprintMatch = currentFingerprint === storedFingerprintLocal ||
+                currentFingerprint === storedFingerprintCookie ||
+                currentFingerprint === storedFingerprintIDB;
+
+            if (isUnlocked || fingerprintMatch) {
+                // Unlock features
+                document.querySelectorAll('.premium-feature').forEach(el => {
+                    el.classList.remove('locked');
+                    const summary = el.querySelector('summary');
+                    if (summary) summary.textContent = summary.textContent.replace(' 🔒', '');
+                });
+                document.getElementById('premiumSection').style.display = 'none';
+
+                // Self-healing: Restore missing data
+                if (!localUnlocked) {
+                    localStorage.setItem('keyboardProUnlocked', 'true');
+                    localStorage.setItem('deviceFingerprint', currentFingerprint);
+                }
+                if (!cookieUnlocked) {
+                    setCookie('keyboardProUnlocked', 'true', 3650);
+                    setCookie('deviceFingerprint', currentFingerprint, 3650);
+                }
+                if (!indexedDBUnlocked) {
+                    await saveToIndexedDB('keyboardProUnlocked', 'true');
+                    await saveToIndexedDB('deviceFingerprint', currentFingerprint);
+                }
+            } else {
+                lockFeatures();
+            }
+        }
+        // --- End License Key System ---
+
+        const noteNamesSharp = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const noteNamesFlat = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+        const noteNamesLatinSharp = ['DO', 'DO#', 'RE', 'RE#', 'MI', 'FA', 'FA#', 'SOL', 'SOL#', 'LA', 'LA#', 'SI'];
+        const noteNamesLatinFlat = ['DO', 'REb', 'RE', 'MIb', 'MI', 'FA', 'SOLb', 'SOL', 'LAb', 'LA', 'SIb', 'SI'];
+        let useLatinNaming = false;
+        const naturalNoteIndexes = [0, 2, 4, 5, 7, 9, 11];
+        const midiToNoteName = midi => { const octave = Math.floor(midi / 12) - 1; const noteIndex = midi % 12; return noteNamesSharp[noteIndex] + octave; };
+        function updateEnabledChordsReminder() { const enabledChords = Array.from(document.querySelectorAll('.chordType:checked')).map(cb => cb.value).join(', '); document.getElementById('enabledChordsReminder').textContent = `${t('enabledTypes')}: ${enabledChords}`; }
+
+        // Single Note Mode Logic
+        function toggleSingleNoteMode() {
+            singleNoteMode = !singleNoteMode;
+            const btn = document.getElementById('singleNoteBtn');
+            if (singleNoteMode) {
+                btn.classList.add('active');
+                accumulatedNotes.clear();
+                updateVirtualKeyboardHighlights();
+            } else {
+                btn.classList.remove('active');
+                accumulatedNotes.clear();
+                updateVirtualKeyboardHighlights();
+            }
+        }
+
+        function resetAccumulatedNotes() {
+            accumulatedNotes.clear();
+            updateVirtualKeyboardHighlights();
+        }
+
+        function updateVirtualKeyboardHighlights() {
+            // Remove existing accumulated highlights
+            document.querySelectorAll('.key.accumulated').forEach(k => k.classList.remove('accumulated'));
+
+            if (!singleNoteMode) return;
+
+            // Highlight accumulated notes
+            accumulatedNotes.forEach(noteIndex => {
+                // Find all keys with this note index (all octaves)
+                for (let midi = 48; midi <= 83; midi++) {
+                    if (midi % 12 === noteIndex) {
+                        if (virtualKeys[midi]) {
+                            virtualKeys[midi].classList.add('accumulated');
+                        }
+                    }
+                }
+            });
+        }
+
+
+        // Microphone Functions
+
+        // ========== FUNZIONI RILEVAMENTO DISPOSITIVO E OTTIMIZZAZIONE ==========
+        function isMobileDevice() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (window.innerWidth <= 768);
+        }
+
+        const IS_MOBILE = isMobileDevice();
+
+        function isIOS() {
+            return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        }
+
+        function getOptimalBufferSize() {
+            if (!isMobileDevice()) return 4096;
+            const cpuCores = navigator.hardwareConcurrency || 2;
+            const memory = navigator.deviceMemory || 2;
+            if (cpuCores >= 6 && memory >= 4) return 4096;
+            else if (cpuCores >= 4) return 3072;
+            else return 2048;
+        }
+
+        function getOptimalSmoothingAlpha() {
+            return isMobileDevice() ? 0.70 : 0.65;
+        }
+
+        // Advanced Pitch Detection Constants
+        const NOTE_CONFIDENCE_THRESHOLD = IS_MOBILE ? 0.25 : 0.30;
+        const NOTE_SUSTAIN_TIME = IS_MOBILE ? 300 : 200;
+        const MIN_FREQUENCY = 65;
+        const MAX_FREQUENCY = 2093;
+        const FFT_SIZE = IS_MOBILE ? 2048 : 4096;
+        const MEYDA_BUFFER_SIZE = IS_MOBILE ? 1024 : 2048;
+        const PEAK_THRESHOLD = IS_MOBILE ? -85 : -75;
+        const RMS_THRESHOLD = IS_MOBILE ? 0.001 : 0.002;
+        const HARMONIC_TOLERANCE = IS_MOBILE ? 0.1 : 0.05;
+
+        // Global State
+        let detectedNotes = new Map();
+        let consecutiveDetections = 0;
+        let lastCheckTime = 0;
+        let micContext, analyser, micStream, micRunning = false;
+        let previousChroma = new Float32Array(12).fill(0);
+        let smoothingAlpha = 0.65;
+        let micSource;
+        const noteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+
+        // Process Audio Frame (FFT + Peak Detection)
+        function processAdvancedAudio(features, webAnalyser) {
+            if (!features || features.rms < 0.003) {
+                updateNoteTracker(new Set());
+                return;
+            }
+
+            const freqData = new Float32Array(webAnalyser.frequencyBinCount);
+            webAnalyser.getFloatFrequencyData(freqData);
+            const sampleRate = micContext.sampleRate;
+            const binSize = sampleRate / webAnalyser.fftSize;
+
+            let peaks = [];
+            const threshold = PEAK_THRESHOLD;
+
+            for (let i = 2; i < freqData.length - 2; i++) {
+                if (freqData[i] > threshold && freqData[i] > freqData[i - 1] && freqData[i] > freqData[i + 1]) {
+                    const freq = i * binSize;
+                    if (freq >= MIN_FREQUENCY && freq <= MAX_FREQUENCY) {
+                        peaks.push({ freq, db: freqData[i], bin: i });
+                    }
+                }
+            }
+
+            peaks.sort((a, b) => b.db - a.db);
+            peaks = peaks.slice(0, 15);
+
+            const frameNotes = new Set();
+            const processedFundamentals = [];
+
+            for (const peak of peaks) {
+                const midi = 12 * Math.log2(peak.freq / 440) + 69;
+                const roundedMidi = Math.round(midi);
+                const noteIndex = roundedMidi % 12;
+                let isProbablyFundamental = true;
+
+                for (const fund of processedFundamentals) {
+                    const ratio = peak.freq / fund.freq;
+                    const nearestHarmonic = Math.round(ratio);
+                    if (nearestHarmonic >= 2 && Math.abs(ratio - nearestHarmonic) < HARMONIC_TOLERANCE) {
+                        isProbablyFundamental = false;
+                        break;
+                    }
+                }
+
+                if (isProbablyFundamental) {
+                    frameNotes.add(noteIndex);
+                    processedFundamentals.push(peak);
+                }
+                if (frameNotes.size >= 8) break;
+            }
+
+            updateNoteTracker(frameNotes);
+
+            const now = Date.now();
+            if (now - lastCheckTime > 150) {
+                lastCheckTime = now;
+                validateChordFromNotes();
+            }
+        }
+
+        function updateNoteTracker(frameNotes) {
+            const now = Date.now();
+            for (let i = 0; i < 12; i++) {
+                let noteState = detectedNotes.get(i) || { confidence: 0, lastSeen: 0 };
+                if (frameNotes.has(i)) {
+                    noteState.confidence = Math.min(1, noteState.confidence + 0.5);
+                    noteState.lastSeen = now;
+                } else {
+                    if (now - noteState.lastSeen > NOTE_SUSTAIN_TIME) {
+                        noteState.confidence = Math.max(0, noteState.confidence - 0.2);
+                    }
+                }
+                detectedNotes.set(i, noteState);
+            }
+        }
+
+        function validateChordFromNotes() {
+            if (!currentChord || correctChordLocked) return;
+
+            // OPTIMIZATION: Dynamic Confidence Thresholds
+            let requiredConfidence = NOTE_CONFIDENCE_THRESHOLD;
+            const complexity = currentChord.all.length;
+
+            // Adjust for chord complexity
+            if (complexity >= 5) requiredConfidence *= 0.85;
+            if (complexity >= 6) requiredConfidence *= 0.80;
+
+            const stableNotes = [];
+            for (let i = 0; i < 12; i++) {
+                const state = detectedNotes.get(i);
+                if (state && state.confidence >= requiredConfidence) {
+                    stableNotes.push(i);
+                }
+            }
+
+            if (stableNotes.length === 0) {
+                if (!singleNoteMode) consecutiveDetections = 0;
+                return;
+            }
+
+            if (singleNoteMode) {
+                // In Single Note start adding stable notes
+                let newNoteAdded = false;
+                stableNotes.forEach(note => {
+                    if (!accumulatedNotes.has(note)) {
+                        accumulatedNotes.add(note);
+                        newNoteAdded = true;
+                    }
+                });
+
+                if (newNoteAdded) {
+                    updateVirtualKeyboardHighlights();
+                }
+
+                // Check Validation with accumulated notes
+                const playedPitches = accumulatedNotes;
+                const isRootless = document.getElementById('rootless').checked;
+                let essentialNotes = new Set(currentChord.essential.map(n => n % 12));
+                if (isRootless) {
+                    essentialNotes.delete(currentChord.root % 12);
+                }
+                const allowedNotes = new Set(currentChord.all.map(n => n % 12));
+                const hasAllEssential = [...essentialNotes].every(note => playedPitches.has(note));
+                const hasNoWrongNotes = [...playedPitches].every(note => allowedNotes.has(note));
+
+                if (hasAllEssential && hasNoWrongNotes && playedPitches.size >= essentialNotes.size) {
+                    correctChordLocked = true;
+                    triggerSuccess();
+                    resetAccumulatedNotes();
+                }
+
+            } else {
+                // Original Standard Mode Logic
+                if (stableNotes.length < 2) {
+                    consecutiveDetections = 0;
+                    return;
+                }
+
+                const playedPitches = new Set(stableNotes);
+                const isRootless = document.getElementById('rootless').checked;
+                let essentialNotes = new Set(currentChord.essential.map(n => n % 12));
+                if (isRootless) {
+                    essentialNotes.delete(currentChord.root % 12);
+                }
+                const allowedNotes = new Set(currentChord.all.map(n => n % 12));
+                const hasAllEssential = [...essentialNotes].every(note => playedPitches.has(note));
+                const hasNoWrongNotes = [...playedPitches].every(note => allowedNotes.has(note));
+
+                if (hasAllEssential && hasNoWrongNotes && playedPitches.size >= essentialNotes.size) {
+                    consecutiveDetections++;
+                    if (consecutiveDetections >= 2) {
+                        correctChordLocked = true;
+                        consecutiveDetections = 0;
+                        triggerSuccess();
+                        if (IS_MOBILE) {
+                            const noteNames = stableNotes.map(n => noteStrings[n]).join(' ');
+                            showToast(`✓ Detected: ${noteNames}`, 2000);
+                        }
+                    }
+                } else {
+                    consecutiveDetections = 0;
+                }
+            }
+        }
+
+        // ========== TEST QUALITÀ MICROFONO ==========
+        async function testMicrophoneQuality(webAnalyser) {
+            if (!micRunning) return;
+            let sumRMS = 0;
+            let samples = 0;
+            const startTime = Date.now();
+
+            const interval = setInterval(() => {
+                if (!micRunning) { clearInterval(interval); return; }
+                const timeData = new Uint8Array(webAnalyser.fftSize);
+                webAnalyser.getByteTimeDomainData(timeData);
+
+                let sum = 0;
+                for (let i = 0; i < timeData.length; i++) {
+                    const val = (timeData[i] - 128) / 128;
+                    sum += val * val;
+                }
+                const rms = Math.sqrt(sum / timeData.length);
+
+                sumRMS += rms;
+                samples++;
+
+                if (Date.now() - startTime > 2500) {
+                    clearInterval(interval);
+                    if (samples === 0) return;
+                    const avgRMS = sumRMS / samples;
+
+                    let quality = '❌ ' + t('micQualityPoor');
+                    let color = '#f44336';
+                    let advice = t('micAdviceTooWeak');
+
+                    if (avgRMS > 0.05) { quality = '✅ ' + t('micQualityExcellent'); color = '#4caf50'; advice = ''; }
+                    else if (avgRMS > 0.02) { quality = '⚠️ ' + t('micQualityGood'); color = '#ff9800'; advice = ''; }
+                    else if (avgRMS > 0.008) { quality = '⚠️ ' + t('micQualitySufficient'); color = '#ff9800'; advice = t('micAdviceGetCloser'); }
+
+                    const statusDiv = document.getElementById('micStatus');
+                    statusDiv.innerHTML = `${t('micActive')} | ${quality} <br><small>${advice} (RMS: ${avgRMS.toFixed(4)})</small>`;
+                    statusDiv.style.color = color;
+                    console.log(`🎤 QA Result: RMS=${avgRMS.toFixed(4)}`);
+                }
+            }, 100);
+        }
+        // Microphone Functions with Meyda and Chroma Template Matching
+        async function startMicrophone() {
+            if (midiAccess && midiAccess.inputs.size > 0) {
+                alert(t('micMidiConflict'));
+                return;
+            }
+            if (micRunning) return;
+
+            try {
+                // ========== INIZIALIZZAZIONE AUDIO CONTEXT ==========
+                if (!micContext) {
+                    micContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+
+                // CRITICO per iOS: resume context se sospeso
+                if (micContext.state === 'suspended') {
+                    await micContext.resume();
+                }
+
+                // Aggiorna smoothing in base al dispositivo
+                smoothingAlpha = getOptimalSmoothingAlpha();
+
+                // ========== CONSTRAINTS OTTIMIZZATI PER PIANOFORTE ==========
+                const constraints = {
+                    audio: {
+                        echoCancellation: false,    // CRITICO: non filtrare armoniche!
+                        noiseSuppression: false,    // Mantieni tutte le frequenze
+                        autoGainControl: false,     // Non normalizzare il volume
+                        sampleRate: 44100,          // Standard audio professionale
+                        channelCount: 1,            // Mono è sufficiente
+                        latency: 0.01               // Bassa latenza
+                    }
+                };
+
+                micStream = await navigator.mediaDevices.getUserMedia(constraints);
+                micSource = micContext.createMediaStreamSource(micStream);
+
+                // ========== CATENA DI FILTRI AUDIO ==========
+                // 1. Filtro passa-alto: elimina rumble sotto 80Hz
+                const highPass = micContext.createBiquadFilter();
+                highPass.type = "highpass";
+                highPass.frequency.value = 80;
+                highPass.Q.value = 0.7;
+                micSource.connect(highPass);
+
+                // 2. Filtro low-shelf: boost frequenze medie del pianoforte
+                const lowShelf = micContext.createBiquadFilter();
+                lowShelf.type = "lowshelf";
+                lowShelf.frequency.value = 250;
+                lowShelf.gain.value = 12;
+                highPass.connect(lowShelf);
+
+                // ========== WEB ANALYSER PER FFT ==========
+                const webAnalyser = micContext.createAnalyser();
+                webAnalyser.fftSize = FFT_SIZE;
+                webAnalyser.smoothingTimeConstant = 0.6;
+                webAnalyser.minDecibels = -90;
+                webAnalyser.maxDecibels = -10;
+                lowShelf.connect(webAnalyser);
+
+                // ========== VERIFICA DISPONIBILITÀ MEYDA ==========
+                if (typeof Meyda === 'undefined') {
+                    const script = document.createElement('script');
+                    script.src = "https://unpkg.com/meyda/dist/web/meyda.min.js";
+                    script.onload = () => { startMicrophone(); };
+                    document.head.appendChild(script);
+                    return;
+                }
+
+                // ========== CONFIGURAZIONE MEYDA OTTIMIZZATA ==========
+                const optimalBufferSize = getOptimalBufferSize();
+                console.log(`🎤 Mic Config: Device=${isMobileDevice() ? 'Mobile' : 'Desktop'}, BufferSize=${optimalBufferSize}, Smoothing=${smoothingAlpha.toFixed(2)}`);
+
+                analyser = Meyda.createMeydaAnalyzer({
+                    "audioContext": micContext,
+                    "source": lowShelf,
+                    "bufferSize": optimalBufferSize, // Adattivo al dispositivo!
+                    "featureExtractors": ["rms"],
+                    "callback": (features) => {
+                        processAdvancedAudio(features, webAnalyser);
+                    }
+                });
+
+                // Reset tracking
+                detectedNotes.clear();
+                consecutiveDetections = 0;
+                lastCheckTime = 0;
+                analyser.start();
+                micRunning = true;
+
+                // ========== UI FEEDBACK ==========
+                document.getElementById('micToggleBtn').textContent = t('micDisable');
+                document.getElementById('micStatus').textContent = t('micActive');
+                document.getElementById('micToggleBtn').textContent = t('micDisable');
+                document.getElementById('micStatus').textContent = t('micActive');
+                document.getElementById('micStatus').style.color = '#4caf50';
+                document.getElementById('singleNoteBtn').style.display = 'block';
+
+                // Test qualità microfono (opzionale ma utile)
+                setTimeout(() => testMicrophoneQuality(webAnalyser), 1000);
+
+                if (IS_MOBILE) {
+                    setTimeout(() => {
+                        showToast('🎵 Suona l\'accordo vicino al telefono', 3000);
+                    }, 500);
+                }
+
+            } catch (err) {
+                console.error("Mic Error:", err);
+                let errorMsg = t('micError');
+
+                // Messaggi di errore specifici
+                if (err.name === 'NotAllowedError') {
+                    errorMsg = 'Microfono bloccato. Consenti l\'accesso nelle impostazioni.';
+                } else if (err.name === 'NotFoundError') {
+                    errorMsg = 'Nessun microfono trovato.';
+                }
+
+                document.getElementById('micStatus').textContent = errorMsg;
+                document.getElementById('micStatus').style.color = '#f44336';
+
+                if (IS_MOBILE) {
+                    showToast('❌ ' + errorMsg, 3000);
+                }
+            }
+        }
+
+        function stopMicrophone() {
+            if (!micRunning) return;
+            micRunning = false;
+
+            // Clear quality test interval if running (handled internally but safety first)
+            // ...
+
+            if (analyser) {
+                try { analyser.stop(); } catch (e) { }
+            }
+            if (micStream) {
+                micStream.getTracks().forEach(track => track.stop());
+            }
+            if (micSource) {
+                try { micSource.disconnect(); } catch (e) { }
+            }
+
+            document.getElementById('micToggleBtn').textContent = t('micEnable');
+            document.getElementById('micStatus').textContent = "";
+            document.getElementById('singleNoteBtn').style.display = 'none';
+            singleNoteMode = false;
+            document.getElementById('singleNoteBtn').classList.remove('active');
+            resetAccumulatedNotes();
+            console.log("🎤 Microphone stopped and cleanup done.");
+        }
+
+        function toggleMicrophone() {
+            if (micRunning) stopMicrophone();
+            else startMicrophone();
+        }
+
+        function analyzeAudio(features) {
+            if (!features || !features.chroma || !currentChord || correctChordLocked) return;
+
+            // RMS check to ignore silence
+            if (features.rms < 0.003) {
+                return;
+            }
+
+            const inputChroma = features.chroma;
+
+            // 1. Temporal Smoothing (Exponential Moving Average)
+            for (let i = 0; i < 12; i++) {
+                previousChroma[i] = (previousChroma[i] * smoothingAlpha) + (inputChroma[i] * (1 - smoothingAlpha));
+            }
+
+            // Build Target Chroma Template
+            // Chroma is 12 bins: C, C#, D, D#, E, F, F#, G, G#, A, A#, B
+            const targetChroma = new Array(12).fill(0);
+            const essentialNotes = currentChord.essential; // [0, 4, 7] etc. corresponding to pitch classes
+
+            // Weight essential notes in template
+            essentialNotes.forEach(noteIndex => {
+                targetChroma[noteIndex % 12] = 1;
+            });
+
+            // Calculate Cosine Similarity on Smoothed Chroma
+            const similarity = calculateCosineSimilarity(previousChroma, targetChroma);
+
+            // 2. Dynamic Threshold based on Spectral Centroid
+            // Low centroid means bass-heavy signal. Bass signals often have messy harmonics.
+            // We lower the threshold slightly for bass signals.
+            let threshold = 0.88; // Default strict threshold
+
+            if (features.spectralCentroid) {
+                // spectralCentroid is in bins? Or Hz?
+                // Meyda docs: "The center of mass of the power spectrum". 
+                // With 8192 buffer, bin width is ~5-6Hz. 
+                // < 20 bins is < 120Hz approx.
+                if (features.spectralCentroid < 20) {
+                    threshold = 0.75; // More tolerant for deep bass
+                } else if (features.spectralCentroid < 40) {
+                    threshold = 0.82; // Mid-bass
+                }
+            }
+
+            // Strict Threshold for correctness
+            if (similarity > threshold) {
+                correctChordLocked = true;
+                triggerSuccess();
+            }
+        }
+
+        function calculateCosineSimilarity(vecA, vecB) {
+            let dotProduct = 0;
+            let normA = 0;
+            let normB = 0;
+            for (let i = 0; i < vecA.length; i++) {
+                dotProduct += vecA[i] * vecB[i];
+                normA += vecA[i] * vecA[i];
+                normB += vecB[i] * vecB[i];
+            }
+            if (normA === 0 || normB === 0) return 0;
+            return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+        }
+
+        function triggerSuccess() {
+            document.getElementById('status').textContent = t('correct');
+            document.getElementById('status').className = 'status-correct';
+            if (document.getElementById('audioToggle').checked) {
+                const ding = new Tone.Oscillator("C6").toDestination().start().stop("+0.1");
+            }
+            if (document.getElementById('automaticAdvanceToggle').checked) {
+                clearTimeout(newChordTimeout);
+                newChordTimeout = setTimeout(() => { nextChord(); }, 1000);
+            }
+        }
+
+        function detectPitch() {
+            // Deprecated by Meyda
+        }
+
+        // Wrapper to inject logic into existing function
+        const originalOnMIDISuccess = onMIDISuccess;
+        onMIDISuccess = function (midi) {
+            originalOnMIDISuccess(midi);
+            // If we have inputs, disable mic
+            if (midi.inputs.size > 0) {
+                if (micRunning) stopMicrophone();
+                const btn = document.getElementById('micToggleBtn');
+                btn.disabled = true;
+                btn.title = t('micMidiConflict');
+                btn.style.opacity = '0.5';
+                document.getElementById('micStatus').textContent = t('micMidiConflict');
+            }
+        }
+
+        function convertChordNameToLatin(chordName) {
+            if (!chordName) return chordName;
+
+            // Extract the root note (first one or two characters)
+            let rootNote = '';
+            let chordType = '';
+
+            // Check for sharp or flat in root note
+            if (chordName.length > 1 && (chordName[1] === '#' || chordName[1] === 'b')) {
+                rootNote = chordName.substring(0, 2);
+                chordType = chordName.substring(2);
+            } else {
+                rootNote = chordName[0];
+                chordType = chordName.substring(1);
+            }
+
+            // Find index of root note
+            let noteIndex = -1;
+            if (rootNote.includes('#')) {
+                noteIndex = noteNamesSharp.indexOf(rootNote);
+                if (noteIndex !== -1) {
+                    return noteNamesLatinSharp[noteIndex] + chordType;
+                }
+            } else if (rootNote.includes('b')) {
+                noteIndex = noteNamesFlat.indexOf(rootNote);
+                if (noteIndex !== -1) {
+                    return noteNamesLatinFlat[noteIndex] + chordType;
+                }
+            } else {
+                noteIndex = noteNamesSharp.indexOf(rootNote);
+                if (noteIndex !== -1) {
+                    return noteNamesLatinSharp[noteIndex] + chordType;
+                }
+            }
+
+            return chordName; // Return original if conversion fails
+        }
+
+        // Function to update chord display based on naming preference
+        function updateChordDisplay() {
+            if (!currentChord) return;
+            const displayName = useLatinNaming ? convertChordNameToLatin(currentChord.name) : currentChord.name;
+            document.getElementById('chordDisplay').textContent = displayName;
+        }
+
+        // Function to toggle naming format
+        function toggleNamingFormat() {
+            useLatinNaming = !useLatinNaming;
+            const btn = document.getElementById('namingToggleBtn');
+            btn.textContent = useLatinNaming ? 'DO/C' : 'C/DO';
+
+            // Save preference
+            localStorage.setItem('useLatinNaming', useLatinNaming.toString());
+
+            // Update display
+            updateChordDisplay();
+        }
+
+        window.addEventListener('load', async () => {
+            // PWA Install Functionality
+            let deferredPrompt;
+            const installButton = document.getElementById('installButton');
+            const downloadAppBtn = document.getElementById('downloadAppBtn');
+            const installModal = document.getElementById('installModal');
+            const modalInstallBtn = document.getElementById('modalInstallBtn');
+            const modalLaterBtn = document.getElementById('modalLaterBtn');
+
+            // Check if app is already installed
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+                window.navigator.standalone ||
+                document.referrer.includes('android-app://');
+
+            // Show modal on first visit (if not installed and not dismissed recently)
+            if (!isStandalone && !sessionStorage.getItem('installModalShown')) {
+                setTimeout(() => {
+                    installModal.classList.add('show');
+                    sessionStorage.setItem('installModalShown', 'true');
+                }, 2000); // Show after 2 seconds
+            }
+
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                installButton.classList.add('show');
+                downloadAppBtn.style.display = 'block';
+            });
+
+            async function triggerInstall() {
+                if (!deferredPrompt) {
+                    alert('Install prompt not available. Please use your browser\'s "Add to Home Screen" option.');
+                    return;
+                }
+
+                installModal.classList.remove('show');
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+
+                if (outcome === 'accepted') {
+                    console.log('User accepted the install prompt');
+                } else {
+                    console.log('User dismissed the install prompt');
+                }
+
+                deferredPrompt = null;
+                installButton.classList.remove('show');
+                downloadAppBtn.style.display = 'none';
+            }
+
+            installButton.addEventListener('click', triggerInstall);
+            downloadAppBtn.addEventListener('click', triggerInstall);
+            modalInstallBtn.addEventListener('click', triggerInstall);
+            modalLaterBtn.addEventListener('click', () => {
+                installModal.classList.remove('show');
+            });
+
+            // Enhanced Service Worker Registration with Auto-Update
+            if ('serviceWorker' in navigator) {
+                try {
+                    const registration = await navigator.serviceWorker.register('./sw.js');
+                    console.log('Service Worker registered');
+
+                    // Check for updates every 60 seconds when page is active
+                    setInterval(() => {
+                        if (document.visibilityState === 'visible') {
+                            registration.update();
+                        }
+                    }, 60000);
+
+                    // Listen for new service worker waiting
+                    registration.addEventListener('updatefound', () => {
+                        const newWorker = registration.installing;
+
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                // New service worker available, activate silently
+                                if (navigator.serviceWorker.controller) {
+                                    navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+                                }
+                            }
+                        });
+                    });
+
+                    // Listen for controller change (new SW activated)
+                    navigator.serviceWorker.addEventListener('controllerchange', () => {
+                        console.log('New service worker activated, reloading page...');
+                        // Reload page to get new content
+                        window.location.reload();
+                    });
+
+                } catch (error) {
+                    console.error('Service Worker registration failed:', error);
+                }
+            }
+
+            // Show update notification toast
+            function showUpdateToast() {
+                const toast = document.createElement('div');
+                toast.id = 'updateToast';
+                toast.className = 'show';
+                toast.innerHTML = 'New version available! Updating...';
+                document.body.appendChild(toast);
+
+                // Tell the waiting service worker to activate
+                if (navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+                }
+
+                // Remove toast after reload
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 3000);
+            }
+
+            // Event Listeners
+            document.getElementById('startButton').addEventListener('click', startTrainer); document.getElementById('nextButton').addEventListener('click', nextChord); document.getElementById('previousButton').addEventListener('click', previousChord); document.getElementById('revealButton').addEventListener('click', revealChord); document.getElementById('displayChordButton').addEventListener('click', displayChord); document.getElementById('resetButton').addEventListener('click', resetTrainer); document.getElementById('fixedNotesButton').addEventListener('click', toggleFixedNotesMode);
+            document.getElementById('unlockButton').addEventListener('click', checkLicenseKey);
+            document.getElementById('namingToggleBtn').addEventListener('click', toggleNamingFormat);
+            document.getElementById('langToggleBtn').addEventListener('click', toggleLanguage);
+            document.getElementById('micToggleBtn').addEventListener('click', toggleMicrophone);
+            document.getElementById('singleNoteBtn').addEventListener('click', toggleSingleNoteMode);
+            updateLocalization();
+
+            // Check and restore license with self-healing
+            await checkAndRestoreLicense();
+
+            // Load naming preference
+            const savedNamingPref = localStorage.getItem('useLatinNaming');
+            if (savedNamingPref === 'true') {
+                useLatinNaming = true;
+                document.getElementById('namingToggleBtn').textContent = 'DO/C';
+            }
+
+            document.getElementById('audioToggle').addEventListener('change', e => { if (e.target.checked) { Tone.start().then(() => { if (sampler) sampler.volume.value = 0; }); } else { if (sampler) sampler.volume.value = -Infinity; } });
+
+            document.getElementById('selectAllChords').addEventListener('change', e => {
+                const isChecked = e.target.checked;
+                document.querySelectorAll('.chordType').forEach(cb => {
+                    const parentDetails = cb.closest('details');
+                    if (parentDetails && !parentDetails.classList.contains('locked')) {
+                        cb.checked = isChecked;
+                    }
+                });
+                updateEnabledChordsReminder();
+            });
+
+            document.getElementById('selectAllAccidentals').addEventListener('change', e => { document.querySelectorAll('.accidental').forEach(cb => cb.checked = e.target.checked); });
+            sampler = new Tone.Sampler({ urls: { C4: "C4.mp3", "D#4": "Ds4.mp3", "F#4": "Fs4.mp3", A4: "A4.mp3", }, release: 1, baseUrl: "https://tonejs.github.io/audio/salamander/", }).toDestination();
+            sampler.volume.value = -Infinity; document.getElementById('audioToggle').checked = false;
+            setupVirtualKeyboard(); updateEnabledChordsReminder(); document.querySelectorAll('.chordType').forEach(cb => cb.addEventListener('change', updateEnabledChordsReminder));
+        });
+
+        function clearDisplayedChord() { if (isChordDisplayed) { fixedNotes.clear(); Object.values(virtualKeys).forEach(key => key.classList.remove('pressed')); if (sampler && Tone.context.state === 'running') sampler.releaseAll(); isChordDisplayed = false; } }
+
+        function setupVirtualKeyboard() {
+            const keyboardDiv = document.getElementById("keyboard");
+            keyboardDiv.innerHTML = '';
+            const notesData = [
+                { note: "C3", midi: 48 }, { note: "C#3", midi: 49, black: true }, { note: "D3", midi: 50 }, { note: "D#3", midi: 51, black: true }, { note: "E3", midi: 52 }, { note: "F3", midi: 53 }, { note: "F#3", midi: 54, black: true }, { note: "G3", midi: 55 }, { note: "G#3", midi: 56, black: true }, { note: "A3", midi: 57 }, { note: "A#3", midi: 58, black: true }, { note: "B3", midi: 59 },
+                { note: "C4", midi: 60 }, { note: "C#4", midi: 61, black: true }, { note: "D4", midi: 62 }, { note: "D#4", midi: 63, black: true }, { note: "E4", midi: 64 }, { note: "F4", midi: 65 }, { note: "F#4", midi: 66, black: true }, { note: "G4", midi: 67 }, { note: "G#4", midi: 68, black: true }, { note: "A4", midi: 69 }, { note: "A#4", midi: 70, black: true }, { note: "B4", midi: 71 },
+                { note: "C5", midi: 72 }, { note: "C#5", midi: 73, black: true }, { note: "D5", midi: 74 }, { note: "D#5", midi: 75, black: true }, { note: "E5", midi: 76 }, { note: "F5", midi: 77 }, { note: "F#5", midi: 78, black: true }, { note: "G5", midi: 79 }, { note: "G#5", midi: 80, black: true }, { note: "A5", midi: 81 }, { note: "A#5", midi: 82, black: true }, { note: "B5", midi: 83 }
+            ];
+            notesData.forEach(note => {
+                const keyEl = document.createElement("div"); keyEl.classList.add("key"); keyEl.dataset.midi = note.midi; keyEl.dataset.note = note.note;
+                if (note.black) { keyEl.classList.add("black"); } else { keyEl.classList.add("white"); }
+                virtualKeys[note.midi] = keyEl; keyboardDiv.appendChild(keyEl);
+                keyEl.addEventListener("mousedown", (e) => {
+                    clearDisplayedChord(); e.preventDefault();
+                    if (fixedNotesMode) {
+                        if (fixedNotes.has(note.midi)) { fixedNotes.delete(note.midi); stopNote(note.midi, false); keyEl.classList.remove("pressed"); }
+                        else { fixedNotes.add(note.midi); playNote(note.midi, 100, false); keyEl.classList.add("pressed"); }
+                        checkChord();
+                    } else { playNote(note.midi, 100, true); }
+                });
+                keyEl.addEventListener("mouseup", (e) => { e.preventDefault(); if (!fixedNotesMode) { stopNote(note.midi, true); } });
+                keyEl.addEventListener("mouseleave", (e) => { if (!fixedNotesMode && !activeNotes.has(parseInt(e.target.dataset.midi))) return; if (!fixedNotesMode) { stopNote(parseInt(e.target.dataset.midi), true); } });
+            });
+        }
+
+        function highlightKey(midi, isActive) { const key = virtualKeys[midi]; if (key) { if (isActive) { key.classList.add('pressed'); } else { key.classList.remove('pressed'); } } }
+        const keyboardMap = { 'a': 48, 's': 50, 'd': 52, 'f': 53, 'g': 55, 'h': 57, 'j': 59, 'k': 60, 'w': 49, 'e': 51, 't': 54, 'y': 56, 'u': 58, 'o': 61, 'p': 63, 'z': 60, 'x': 62, 'c': 64, 'v': 65, 'b': 67, 'n': 69, 'm': 71, ',': 72, 'q': 61, '2': 63, '3': 66, '4': 68, '5': 70, };
+
+        function handlePhysicalKeyInteraction(e) {
+            clearDisplayedChord(); const midiNote = keyboardMap[e.key];
+            if (midiNote && !e.repeat) {
+                if (fixedNotesMode) {
+                    if (fixedNotes.has(midiNote)) { fixedNotes.delete(midiNote); stopNote(midiNote, false); highlightKey(midiNote, false); }
+                    else { fixedNotes.add(midiNote); playNote(midiNote, 100, false); highlightKey(midiNote, true); }
+                    checkChord();
+                } else { playNote(midiNote, 100, true); }
+            }
+        }
+        function handlePhysicalKeyRelease(e) { if (fixedNotesMode) return; const midiNote = keyboardMap[e.key]; if (midiNote && activeNotes.has(midiNote)) { stopNote(midiNote, true); } }
+        function playNote(midiNote, velocity, check = true) { if (sampler && Tone.context.state === 'running') { const noteName = midiToNoteName(midiNote); sampler.triggerAttack(noteName); } activeNotes.add(midiNote); highlightKey(midiNote, true); if (!fixedNotesMode && check) checkChord(); }
+        function stopNote(midiNote, check = true) { if (sampler && Tone.context.state === 'running') { const noteName = midiToNoteName(midiNote); sampler.triggerRelease(noteName); } activeNotes.delete(midiNote); if (!fixedNotesMode) highlightKey(midiNote, false); if (!fixedNotesMode && check) checkChord(); }
+        function getSelectedChordTypes() { return Array.from(document.querySelectorAll('.chordType:checked')).map(cb => cb.value); }
+        function getSelectedAccidentals() { return Array.from(document.querySelectorAll('.accidental:checked')).map(cb => cb.value); }
+        function generateNoteName(index) {
+            const selectedAccidentals = getSelectedAccidentals(); const noteIndex = index % 12;
+            if (selectedAccidentals.length === 1 && selectedAccidentals[0] === 'natural') { return naturalNoteIndexes.includes(noteIndex) ? noteNamesSharp[noteIndex] : null; }
+            const isSharp = noteNamesSharp[noteIndex].length > 1, isFlat = noteNamesFlat[noteIndex].length > 1;
+            const sharpAvailable = selectedAccidentals.includes('sharp'), flatAvailable = selectedAccidentals.includes('flat');
+            if (selectedAccidentals.length === 0) return noteNamesSharp[noteIndex];
+            if (sharpAvailable && isSharp && flatAvailable && isFlat) return Math.random() < 0.5 ? noteNamesSharp[noteIndex] : noteNamesFlat[noteIndex];
+            if (sharpAvailable && isSharp) return noteNamesSharp[noteIndex];
+            if (flatAvailable && isFlat) return noteNamesFlat[noteIndex];
+            if (selectedAccidentals.includes('natural') && naturalNoteIndexes.includes(noteIndex)) return noteNamesSharp[noteIndex];
+            return null;
+        }
+
+        function startTrainer() {
+            if (running) return;
+            const types = getSelectedChordTypes();
+            if (types.length === 0) { document.getElementById('chordDisplay').textContent = t('selectOneType'); document.getElementById('status').textContent = ''; return; }
+            running = true; chordCounter = 0; correctChordLocked = false; requestMIDIAccess(); nextChord();
+        }
+        function resetTrainer() {
+            running = false; clearTimeout(newChordTimeout);
+            document.getElementById('chordDisplay').textContent = ''; document.getElementById('status').textContent = ''; document.getElementById('revealNotes').style.display = 'none';
+            document.getElementById('chordCount').textContent = `${t('chordsGenerated')}: 0`;
+            activeNotes.clear(); fixedNotes.clear(); Object.values(virtualKeys).forEach(key => key.classList.remove('pressed'));
+            currentChord = null; correctChordLocked = false; chordCounter = 0;
+            document.getElementById('selectAllChords').checked = false; document.getElementById('selectAllAccidentals').checked = false; document.getElementById('rootless').checked = false;
+            document.querySelectorAll('.chordType, .accidental').forEach(cb => cb.checked = false);
+            chordHistory = []; historyIndex = -1; updateEnabledChordsReminder();
+        }
+
+        function nextChord() {
+            if (!running) return;
+            clearDisplayedChord();
+            const types = getSelectedChordTypes();
+            if (types.length === 0) { document.getElementById('chordDisplay').textContent = t('selectOneType'); document.getElementById('status').textContent = ''; return; }
+            const allowedRoots = [];
+            for (let i = 0; i < 12; i++) { if (generateNoteName(i) !== null) allowedRoots.push(i); }
+            if (allowedRoots.length === 0) { document.getElementById('chordDisplay').textContent = t('selectAccidental'); document.getElementById('status').textContent = ''; return; }
+            let newChord;
+            if (historyIndex < chordHistory.length - 1) {
+                historyIndex++; newChord = chordHistory[historyIndex];
+            } else {
+                const root = allowedRoots[Math.floor(Math.random() * allowedRoots.length)];
+                const type = types[Math.floor(Math.random() * types.length)];
+                const definition = chordDefinitions[type];
+                const essentialNotes = definition.essential.map(i => (root + i) % 12);
+                const allNotes = [...definition.essential, ...definition.optional].map(i => (root + i) % 12);
+                let chordName = generateNoteName(root) + type;
+                newChord = { root, type, name: chordName, essential: essentialNotes, all: [...new Set(allNotes)] };
+                chordHistory.push(newChord); historyIndex = chordHistory.length - 1;
+            }
+            currentChord = newChord;
+            updateChordDisplay();
+            document.getElementById('status').textContent = ''; document.getElementById('revealNotes').style.display = 'none';
+            chordCounter++; document.getElementById('chordCount').textContent = `${t('chordsGenerated')}: ${chordCounter}`;
+            activeNotes.clear(); fixedNotes.clear();
+            Object.values(virtualKeys).forEach(key => key.classList.remove('pressed'));
+            if (typeof resetAccumulatedNotes === 'function') resetAccumulatedNotes();
+        }
+
+        function previousChord() {
+            if (historyIndex > 0) {
+                clearDisplayedChord(); historyIndex--;
+                currentChord = chordHistory[historyIndex];
+                updateChordDisplay();
+                document.getElementById('status').textContent = ''; document.getElementById('revealNotes').style.display = 'none';
+                activeNotes.clear(); fixedNotes.clear(); Object.values(virtualKeys).forEach(key => key.classList.remove('pressed'));
+                if (typeof resetAccumulatedNotes === 'function') resetAccumulatedNotes();
+            } else { document.getElementById('status').textContent = t('noPrevChords'); document.getElementById('status').className = 'status-wrong'; }
+        }
+
+        function revealChord() { if (!currentChord) return; const notes = currentChord.all.map(noteIndex => generateNoteName(noteIndex)).filter(Boolean); let notesText = `${t('notes')} ${notes.join(' ')}`; document.getElementById('revealNotes').textContent = notesText; document.getElementById('revealNotes').style.display = 'block'; }
+
+        function calculateDefaultVoicing(noteClasses, rootNote) {
+            const sortedClasses = [...noteClasses].sort((a, b) => a - b); const rootIndex = sortedClasses.indexOf(rootNote);
+            const reorderedClasses = [...sortedClasses.slice(rootIndex), ...sortedClasses.slice(0, rootIndex)];
+            let currentMidi = 48 + rootNote; const midiNotes = [currentMidi];
+            for (let i = 1; i < reorderedClasses.length; i++) { let interval = (reorderedClasses[i] - reorderedClasses[i - 1] + 12) % 12; currentMidi += interval; midiNotes.push(currentMidi); }
+            return midiNotes;
+        }
+        function calculateClosePositionVoicing(noteClasses, rootNote) {
+            if (noteClasses.length === 0) return [];
+            const rootPositionMidi = calculateDefaultVoicing(noteClasses, rootNote);
+            let bestInversion = rootPositionMidi; let minSpan = Infinity;
+            for (let i = 0; i < rootPositionMidi.length; i++) {
+                let tempNotes = [...rootPositionMidi];
+                for (let j = 0; j < i; j++) { tempNotes[j] += 12; }
+                let currentInversion = tempNotes.sort((a, b) => a - b);
+                const span = currentInversion[currentInversion.length - 1] - currentInversion[0];
+                if (span < minSpan) { minSpan = span; bestInversion = currentInversion; }
+            }
+            const averageNote = bestInversion.reduce((a, b) => a + b, 0) / bestInversion.length;
+            const shift = 64 - averageNote; const octaveShift = 12 * Math.round(shift / 12);
+            return bestInversion.map(note => note + octaveShift);
+        }
+
+        function displayChord() {
+            if (!currentChord) return; clearDisplayedChord();
+            const isClosePosition = document.getElementById('closePositionToggle').checked; let midiNotes = [];
+            if (isClosePosition) { midiNotes = calculateClosePositionVoicing(currentChord.all, currentChord.root); }
+            else { midiNotes = calculateDefaultVoicing(currentChord.all, currentChord.root); }
+            midiNotes.forEach(midiNote => { if (virtualKeys[midiNote]) { fixedNotes.add(midiNote); playNote(midiNote, 100, false); } });
+            isChordDisplayed = true;
+        }
+        function requestMIDIAccess() { if (navigator.requestMIDIAccess) { navigator.requestMIDIAccess().then(onMIDISuccess, () => { document.getElementById('midiStatus').textContent = t('midiError'); }); } else { document.getElementById('midiStatus').textContent = t('midiUnsupported'); } }
+        function onMIDISuccess(midi) { midiAccess = midi; document.getElementById('midiStatus').textContent = t('midiConnected'); for (let input of midiAccess.inputs.values()) { input.onmidimessage = onMIDIMessage; } }
+        function onMIDIMessage(msg) {
+            clearDisplayedChord(); const [command, note, velocity] = msg.data; if (fixedNotesMode) return;
+            if (command === 144 && velocity > 0) { playNote(note, velocity); }
+            else if (command === 128 || (command === 144 && velocity === 0)) { stopNote(note); }
+        }
+        function checkChord() {
+            if (!running || !currentChord || correctChordLocked) return;
+            const playedNotesRaw = fixedNotesMode ? fixedNotes : activeNotes;
+            if (playedNotesRaw.size === 0) { document.getElementById('status').textContent = ''; return; }
+            const playedPitches = new Set([...playedNotesRaw].map(n => n % 12));
+            const isRootless = document.getElementById('rootless').checked;
+            let essentialNotes = new Set(currentChord.essential); if (isRootless) { essentialNotes.delete(currentChord.root); }
+            const allowedNotes = new Set(currentChord.all);
+            const hasAllEssential = [...essentialNotes].every(note => playedPitches.has(note));
+            const hasNoWrongNotes = [...playedPitches].every(note => allowedNotes.has(note));
+            let isCorrect = hasAllEssential && hasNoWrongNotes;
+            if (isCorrect) {
+                correctChordLocked = true;
+                document.getElementById('status').textContent = t('correct'); document.getElementById('status').className = 'status-correct';
+                if (document.getElementById('audioToggle').checked) { new Audio('https://s3.amazonaws.com/duolingo-f/ding.mp3').play(); }
+                if (document.getElementById('automaticAdvanceToggle').checked) { clearTimeout(newChordTimeout); newChordTimeout = setTimeout(() => { nextChord(); }, 1000); }
+            } else { document.getElementById('status').textContent = t('incorrect'); document.getElementById('status').className = 'status-wrong'; }
+        }
+        function toggleFixedNotesMode() {
+            fixedNotesMode = !fixedNotesMode; document.getElementById('fixedNotesButton').classList.toggle('active', fixedNotesMode);
+            activeNotes.clear(); fixedNotes.clear(); Object.values(virtualKeys).forEach(key => key.classList.remove('pressed'));
+            document.getElementById('status').textContent = '';
+        }
+        document.addEventListener('keydown', handlePhysicalKeyInteraction); document.addEventListener('keyup', handlePhysicalKeyRelease);
+    </script>
+</body>
+
+</html>
