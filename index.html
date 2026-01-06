@@ -980,9 +980,11 @@
                 <details>
                     <summary data-i18n="triads">Triads</summary>
                     <div class="chord-type-list">
-                        <label><input type="checkbox" class="chordType" value="maj"> <span data-i18n="chordMaj">Major
+                        <label><input type="checkbox" class="chordType" value="maj" checked> <span
+                                data-i18n="chordMaj">Major
                                 (maj)</span></label>
-                        <label><input type="checkbox" class="chordType" value="min"> <span data-i18n="chordMin">Minor
+                        <label><input type="checkbox" class="chordType" value="min" checked> <span
+                                data-i18n="chordMin">Minor
                                 (min)</span></label>
                         <label><input type="checkbox" class="chordType" value="dim"> <span
                                 data-i18n="chordDim">Diminished</span></label>
@@ -1055,11 +1057,12 @@
                     <strong class="controls-title" data-i18n="preferences">Preferences:</strong>
                     <label><input type="checkbox" id="selectAllAccidentals"> <span data-i18n="enableAllPref">Enable all
                             preferences</span></label>
-                    <label><input type="checkbox" class="accidental" value="sharp"> <span data-i18n="sharps">Sharps
+                    <label><input type="checkbox" class="accidental" value="sharp" checked> <span
+                            data-i18n="sharps">Sharps
                             (#)</span></label>
-                    <label><input type="checkbox" class="accidental" value="flat"> <span data-i18n="flats">Flats
+                    <label><input type="checkbox" class="accidental" value="flat" checked> <span data-i18n="flats">Flats
                             (b)</span></label>
-                    <label><input type="checkbox" class="accidental" value="natural"> <span
+                    <label><input type="checkbox" class="accidental" value="natural" checked> <span
                             data-i18n="naturals">Naturals</span></label>
                 </div>
             </div>
@@ -2221,8 +2224,12 @@
 
         function startTrainer() {
             if (running) return;
-            const types = getSelectedChordTypes();
-            if (types.length === 0) { document.getElementById('chordDisplay').textContent = t('selectOneType'); document.getElementById('status').textContent = ''; return; }
+            let types = getSelectedChordTypes();
+            // Auto-select basic chords if none selected
+            if (types.length === 0) {
+                document.querySelectorAll('.chordType[value="maj"], .chordType[value="min"]').forEach(cb => cb.checked = true);
+                types = ['maj', 'min'];
+            }
             running = true; chordCounter = 0; correctChordLocked = false; requestMIDIAccess(); nextChord();
         }
         function resetTrainer() {
